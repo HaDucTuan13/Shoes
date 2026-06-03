@@ -1,0 +1,39 @@
+[{
+  "_id": {
+    "$oid": "68eded16b066350ecedbb836"
+  },
+  "categoryName": "Giày Bóng Rổ",
+  "createdAt": {
+    "$date": "2025-10-14T06:26:30.566Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-14T06:26:30.566Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68eded1fb066350ecedbb83a"
+  },
+  "categoryName": "GIÀY CHẠY BỘ",
+  "createdAt": {
+    "$date": "2025-10-14T06:26:39.102Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-14T06:26:39.102Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68eded27b066350ecedbb83e"
+  },
+  "categoryName": "GIÀY THỂ THAO SNEAKER",
+  "createdAt": {
+    "$date": "2025-10-14T06:26:47.790Z"
+  },
+  "updatedAt": {
+    "$date": "2025-10-14T06:26:47.790Z"
+  },
+  "__v": 0
+}]
