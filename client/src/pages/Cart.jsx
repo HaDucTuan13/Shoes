@@ -43,30 +43,31 @@ function Cart() {
     };
 
     const handleApplyCoupon = async () => {
-        if (!couponCode.trim()) {
-            toast.error('Vui lòng nhập mã giảm giá');
-            return;
-        }
-
-        await requestApplyCoupon({
-            couponCode: couponCode.trim(),
-        });
-
+    if (!couponCode.trim()) {
+        toast.error('Vui lòng nhập mã giảm giá');
+        return;
+    }
+    setIsApplyingCoupon(true);
+    try {
+        await requestApplyCoupon({ couponCode: couponCode.trim() });
         const coupon = couponData?.find((c) => c.nameCoupon === couponCode.trim());
         if (!coupon) {
             toast.error('Mã giảm giá không hợp lệ');
             return;
         }
-
         const subtotal = calculateTotalPrice(cartData);
         if (subtotal < coupon.minPrice) {
             toast.error(`Đơn hàng tối thiểu ${formatPrice(coupon.minPrice)} để sử dụng mã này`);
             return;
         }
-
         setSelectedCoupon(coupon);
         toast.success(`Áp dụng mã giảm giá ${coupon.nameCoupon} thành công!`);
-    };
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+        setIsApplyingCoupon(false);
+    }
+};
 
     const handleRemoveCoupon = () => {
         setSelectedCoupon(null);
@@ -75,10 +76,12 @@ function Cart() {
     };
 
     const handleQuantityChange = async (index, change) => {
+        const newQuantity = cartData[index].quantity + change;
+        if (newQuantity < 1) return;
         try {
             const data = {
                 itemId: cartData[index]._id,
-                quantity: cartData[index].quantity + change,
+                quantity: newQuantity,
             };
             await requestUpdateCartQuantity(data);
             fetchCart();
@@ -113,24 +116,26 @@ function Cart() {
     //     );
     // }
 
-    if (!cartData) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <Header />
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="text-center py-16">
-                        <ShoppingBag className="w-24 h-24 text-gray-300 mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Giỏ hàng trống</h2>
-                        <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+if (!cartData || cartData.length === 0) {
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <Header />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="text-center py-16">
+                    <ShoppingBag className="w-24 h-24 text-gray-300 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Giỏ hàng trống</h2>
+                    <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+                    <Link to="/">
                         <button className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors">
                             Tiếp tục mua sắm
                         </button>
-                    </div>
+                    </Link>
                 </div>
-                <Footer />
             </div>
-        );
-    }
+            <Footer />
+        </div>
+    );
+}
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -199,7 +204,8 @@ function Cart() {
                                             <div className="flex items-center space-x-2">
                                                 <button
                                                     onClick={() => handleQuantityChange(index, -1)}
-                                                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                                    disabled={product.quantity <= 1}
+                                                    className="p-1 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <Minus className="w-4 h-4" />
                                                 </button>
@@ -388,10 +394,10 @@ function Cart() {
                     </div>
                 </div>
 
-                {/* Continue Shopping */}
+                {/* Continue Shopping
                 <div className="mt-8 text-center">
                     <button className="text-red-600 hover:text-red-700 font-medium text-sm">← Tiếp tục mua sắm</button>
-                </div>
+                </div> */}
             </main>
 
             <Footer />

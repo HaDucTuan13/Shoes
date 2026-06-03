@@ -65,20 +65,30 @@ function Checkout() {
 
     const navigate = useNavigate();
 
-    const handleSubmit = async () => {
+    const validatePhone = (phone) => {
+    const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
+    return phoneRegex.test(phone);
+    };
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e) => {
+        if (e?.preventDefault) e.preventDefault();
         if (!formData.fullName || !formData.phone || !formData.address) {
             toast.error('Vui lòng nhập đầy đủ thông tin');
             return;
         }
-
-        const data = {
-            fullName: formData.fullName,
-            phone: formData.phone,
-            address: formData.address,
-        };
-
+        if (!validatePhone(formData.phone)) {
+            toast.error('Số điện thoại không đúng định dạng (VD: 0912345678)');
+            return;
+        }
+        setIsSubmitting(true);
         try {
-            await requestUpdateInfoCart(data);
+            await requestUpdateInfoCart({
+                fullName: formData.fullName,
+                phone: formData.phone,
+                address: formData.address,
+            });
             if (paymentMethod === 'cod') {
                 const res = await requestCreatePayment({ paymentMethod });
                 navigate(`/payment/success/${res.metadata._id}`);
@@ -88,9 +98,15 @@ function Checkout() {
             } else if (paymentMethod === 'vnpay') {
                 const res = await requestCreatePayment({ paymentMethod });
                 window.location.href = res.metadata;
+            } else if (paymentMethod === 'bank') {
+                toast.info('Vui lòng chuyển khoản theo thông tin đã được gửi qua email');
+                const res = await requestCreatePayment({ paymentMethod });
+                navigate(`/payment/success/${res.metadata._id}`);
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -361,10 +377,11 @@ function Checkout() {
                             {/* Place Order Button */}
                             <button
                                 onClick={handleSubmit}
-                                className="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors mb-4 flex items-center justify-center"
+                                disabled={isSubmitting}
+                                className="w-full bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors mb-4 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <CheckCircle className="w-5 h-5 mr-2" />
-                                Đặt hàng
+                                {isSubmitting ? 'Đang xử lý...' : 'Đặt hàng'}
                             </button>
 
                             {/* Security Features */}

@@ -39,5 +39,6 @@ router.delete('/admin/users/:id', authUser, asyncHandler(userController.deleteUs
 router.get('/admin/dashboard', authAdmin, asyncHandler(userController.getDashboardAdmin));
 
 router.get('/admin', authAdmin, asyncHandler(userController.getDashboardAdmin));
+// router.get('/admin/revenue-by-month', authenticate, adminMiddleware, UserController.getRevenueByMonth);
 
 module.exports = router;

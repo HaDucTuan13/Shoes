@@ -217,6 +217,12 @@ class UserController {
         const data = await UserService.getDashboardAdmin();
         new OK({ message: 'success', metadata: data }).send(res);
     }
+
+    // async getRevenueByMonth(req, res) {
+    // const { month, year } = req.query;
+    // const data = await UserService.getRevenueByMonth(parseInt(month), parseInt(year));
+    // new OK({ message: 'success', metadata: data }).send(res);
+    // }
 }
 
 module.exports = new UserController();

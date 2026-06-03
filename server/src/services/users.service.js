@@ -592,18 +592,71 @@ class UserService {
                 })),
             };
 
-            console.log('Final dashboard data:', {
-                overview: result.overview,
-                revenueByDayCount: result.revenueByDay.length,
-                orderStatusCount: result.orderStatus.length,
-                topProductsCount: result.topProducts.length,
-                paymentMethodsCount: result.paymentMethods.length,
-            });
+            // console.log('Final dashboard data:', {
+            //     overview: result.overview,
+            //     revenueByDayCount: result.revenueByDay.length,
+            //     orderStatusCount: result.orderStatus.length,
+            //     topProductsCount: result.topProducts.length,
+            //     paymentMethodsCount: result.paymentMethods.length,
+            // });
 
-            return result;
+            // return result;
         } catch (error) {
             throw new Error(`Error getting dashboard data: ${error.message}`);
         }
+    }
+    // Thêm hàm mới vào UserService
+    async getRevenueByMonth(month, year) {
+        const Payment = require('../models/payment.model');
+
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 1);
+
+        const revenueByDay = await Payment.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startDate, $lt: endDate },
+                    status: { $ne: 'cancelled' },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$createdAt' },
+                        month: { $month: '$createdAt' },
+                        day: { $dayOfMonth: '$createdAt' },
+                    },
+                    revenue: {
+                        $sum: {
+                            $cond: {
+                                if: { $and: [{ $ne: ['$finalPrice', null] }, { $gt: ['$finalPrice', 0] }] },
+                                then: '$finalPrice',
+                                else: '$totalPrice',
+                            },
+                        },
+                    },
+                    orders: { $sum: 1 },
+                },
+            },
+            { $sort: { '_id.day': 1 } },
+        ]);
+
+        // Tạo đủ tất cả các ngày trong tháng, ngày không có đơn thì revenue = 0
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const result = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const found = revenueByDay.find((item) => item._id.day === d);
+            result.push({
+                day: `${d}/${month}`,
+                revenue: found ? found.revenue : 0,
+                orders: found ? found.orders : 0,
+            });
+        }
+
+        const totalRevenue = result.reduce((sum, i) => sum + i.revenue, 0);
+        const totalOrders = result.reduce((sum, i) => sum + i.orders, 0);
+
+        return { month, year, totalRevenue, totalOrders, data: result };
     }
 }
 

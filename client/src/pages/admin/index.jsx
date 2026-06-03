@@ -65,7 +65,7 @@ function Admin() {
                         {selectedKey === 'flashSale' && <FlashSaleAdmin />}
                         {selectedKey === 'blog' && <BlogAdmin />}
                         {selectedKey === 'contact' && <ContactManager />}
-                        {selectedKey === 'dashboard' && <Dashbroad />}
+                        {selectedKey === 'dashboard' && <Dashbroad onNavigate={setSelectedKey} />}
                     </div>
                 </Content>
             </Layout>
