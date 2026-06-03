@@ -32,3 +32,4 @@ server/.env
 
 .DS_Store
 node_modules/
+server/src/uploads/
