@@ -91,13 +91,13 @@ function FlashSale() {
     };
 
     return (
-        <div className="bg-[#ed1d24] text-white py-8">
+        <div className="bg-[#111827] text-white py-8">
             <div className="w-[90%] mx-auto ">
                 {/* Header */}
                 <div className="flex items-center mb-6 text-center justify-center">
                     <div className="flex items-center space-x-2 ">
                         <div className="text-yellow-300 text-2xl">⚡</div>
-                        <h2 className="text-2xl font-bold ">SIÊU KHUYẾN MÃI</h2>
+                        <h2 className="text-2xl font-bold text-white tracking-widest">SIÊU KHUYẾN MÃI</h2>
                     </div>
                 </div>
 

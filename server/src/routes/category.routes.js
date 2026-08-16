@@ -24,5 +24,6 @@ router.post('/upload-image', authUser, upload.single('image'), asyncHandler(cate
 router.get('/all', asyncHandler(categoryController.getAllCategory));
 router.post('/update', authUser, upload.single('image'), asyncHandler(categoryController.updateCategory));
 router.delete('/delete/:id', authUser, asyncHandler(categoryController.deleteCategory));
+router.get('/tree', asyncHandler(categoryController.getCategoryTree));
 
 module.exports = router;

@@ -163,7 +163,7 @@ function LoginUser() {
                                     type="primary"
                                     htmlType="submit"
                                     loading={loading}
-                                    className="!w-full !h-12 !bg-red-500 hover:!bg-red-600 !border-red-500 hover:!border-red-600 !rounded-md !font-medium !text-base !shadow-md hover:!shadow-lg !transition-all !duration-200"
+                                    className="!w-full !h-12 !bg-[#111827] hover:!bg-[#1f2937] !border-[#111827] hover:!border-[#1f2937] !rounded-md !font-medium !text-base !shadow-md hover:!shadow-lg !transition-all !duration-200"
                                 >
                                     Đăng nhập
                                 </Button>

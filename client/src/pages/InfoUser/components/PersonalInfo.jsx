@@ -85,7 +85,7 @@ function PersonalInfo() {
         <Card
             className="overflow-hidden"
             cover={
-                <div className="h-40 bg-gradient-to-r from-[#e45464] to-[#d70018] relative">
+                <div className="h-40 bg-gradient-to-r from-[#1f2937] to-[#111827] relative">
                     <div className="absolute left-6 -bottom-16">
                         <Avatar
                             size={120}

@@ -87,3 +87,10 @@ export const requestGetDashboardAdmin = async () => {
     const res = await apiClient.get(`${apiUser}/admin`);
     return res.data;
 };
+
+export const requestGetRevenueByMonth = async (month, year) => {
+    const res = await apiClient.get(`${apiUser}/admin/revenue-by-month`, {
+        params: { month, year },
+    });
+    return res.data;
+};  

@@ -152,7 +152,7 @@ function FeedbackHome() {
             <div className="container mx-auto px-4">
                 {/* Section Header */}
                 <div className="text-center mb-12">
-                    <div className="inline-flex items-center gap-3 bg-[#FF3B2F] text-white px-6 py-3 rounded-full shadow-lg mb-4">
+                    <div className="inline-flex items-center gap-3 bg-[#111827] text-white px-6 py-3 rounded-full shadow-lg mb-4">
                         <Star className="w-5 h-5" />
                         <span className="font-semibold">Đánh giá từ khách hàng</span>
                     </div>
@@ -160,7 +160,7 @@ function FeedbackHome() {
                         Trải nghiệm tuyệt vời cùng chúng tôi
                     </Title>
                     <Text className="text-gray-600 text-lg max-w-2xl mx-auto">
-                        Hàng nghìn khách hàng đã tin tưởng và lựa chọn sản phẩm giày của chúng tôi
+                        Rất nhiều khách hàng đã tin tưởng và lựa chọn sản phẩm giày của chúng tôi
                     </Text>
                 </div>
 
@@ -223,13 +223,13 @@ function FeedbackHome() {
                                 <Card className="h-full shadow-lg border-0 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                                     <div className="relative">
                                         {/* Quote Icon */}
-                                        <div className="absolute top-0 right-0 w-12 h-12 bg-[#FF3B2F] rounded-bl-2xl flex items-center justify-center">
+                                        <div className="absolute top-0 right-0 w-12 h-12 bg-[#111827] rounded-bl-2xl flex items-center justify-center">
                                             <Quote className="w-5 h-5 text-white" />
                                         </div>
 
                                         {/* User Info */}
                                         <div className="flex items-center gap-4 mb-4">
-                                            <div className="w-12 h-12 bg-[#FF3B2F] rounded-full flex items-center justify-center shadow-lg">
+                                            <div className="w-12 h-12 bg-[#111827] rounded-full flex items-center justify-center shadow-lg">
                                                 <span className="text-white font-bold text-lg">
                                                     {review.userId?.fullName?.charAt(0)?.toUpperCase() || 'U'}
                                                 </span>

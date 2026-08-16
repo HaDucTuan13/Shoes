@@ -7,24 +7,20 @@ const { BadRequestError } = require('../core/error.response');
 class CartService {
     async calculateTotal(cart, productsData) {
         let total = 0;
-
         for (const item of cart.products) {
             let discount = 0;
             const product = productsData.find((p) => p._id.toString() === item.productId.toString());
-
             const findFlashSale = await modelFlashSale.findOne({ productId: item.productId });
             if (findFlashSale) {
                 discount = findFlashSale.discount;
             } else {
                 discount = product?.discount || 0;
             }
-
             if (product) {
                 const priceAfterDiscount = product.price * (1 - discount / 100);
                 total += priceAfterDiscount * item.quantity;
             }
         }
-
         return total;
     }
 
@@ -38,6 +34,8 @@ class CartService {
 
         const variant = product.variants.id(sizeId);
         if (!variant) throw new Error('Không tìm thấy size sản phẩm');
+
+        // Chỉ kiểm tra stock, không trừ
         if (variant.stock < quantity) throw new Error('Số lượng trong kho không đủ');
 
         let cart = await Cart.findOne({ userId });
@@ -57,26 +55,26 @@ class CartService {
             );
 
             if (existingItem) {
-                if (variant.stock < quantity) throw new Error('Số lượng trong kho không đủ để thêm');
+                // Kiểm tra tổng số lượng sau khi cộng thêm có vượt stock không
+                if (variant.stock < existingItem.quantity + quantity) {
+                    throw new Error('Số lượng trong kho không đủ để thêm');
+                }
                 existingItem.quantity += quantity;
             } else {
                 cart.products.push({ productId, colorId, sizeId, quantity });
             }
         }
 
-        variant.stock -= quantity;
-
-        // 🧮 Tính tổng trước khi lưu
+        // Không trừ stock ở đây nữa
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
 
-        await Promise.all([product.save(), cart.save()]);
+        await cart.save(); // Bỏ product.save() vì không đụng stock
 
         return cart;
     }
 
-    // 📦 Lấy giỏ hàng
     async getCart(userId) {
         const cart = await Cart.findOne({ userId })
             .populate({
@@ -88,7 +86,6 @@ class CartService {
         if (!cart) return { items: [], coupon: [] };
 
         const today = new Date();
-
         const coupon = await Coupon.find({
             startDate: { $lte: today },
             endDate: { $gte: today },
@@ -96,14 +93,12 @@ class CartService {
             quantity: { $gt: 0 },
         }).lean();
 
-        // 🔁 Xử lý từng sản phẩm trong giỏ hàng
         const items = await Promise.all(
             cart.products.map(async (item) => {
                 const product = item.productId;
                 const color = product.colors.find((c) => c._id.toString() === item.colorId.toString());
                 const variant = product.variants.find((v) => v._id.toString() === item.sizeId.toString());
 
-                // 🔍 Kiểm tra flash sale
                 let discount = 0;
                 const findFlashSale = await modelFlashSale.findOne({ productId: item.productId });
                 if (findFlashSale) {
@@ -117,9 +112,9 @@ class CartService {
                 return {
                     _id: item._id,
                     name: product.name,
-                    price: product.price, // giá gốc
-                    discount, // % giảm
-                    priceAfterDiscount, // giá sau giảm
+                    price: product.price,
+                    discount,
+                    priceAfterDiscount,
                     color: color ? color.name : null,
                     image: color ? color.images : null,
                     size: variant ? variant.size : null,
@@ -133,7 +128,6 @@ class CartService {
         return { items, totalPrice: cart.totalPrice, coupon };
     }
 
-    // ✏️ Cập nhật số lượng
     async updateCartQuantity(userId, itemId, newQuantity) {
         const cart = await Cart.findOne({ userId });
         if (!cart) throw new Error('Không tìm thấy giỏ hàng');
@@ -147,19 +141,14 @@ class CartService {
         const variant = product.variants.id(cartItem.sizeId);
         if (!variant) throw new Error('Không tìm thấy size trong sản phẩm');
 
-        const diff = newQuantity - cartItem.quantity;
-
-        if (diff > 0) {
-            if (variant.stock < diff) throw new Error('Số lượng trong kho không đủ');
-            variant.stock -= diff;
-        } else if (diff < 0) {
-            variant.stock += Math.abs(diff);
+        // Chỉ kiểm tra stock, không trừ/cộng
+        if (newQuantity > variant.stock) {
+            throw new Error('Số lượng trong kho không đủ');
         }
 
         cartItem.quantity = newQuantity;
-        await Promise.all([cart.save(), product.save()]);
+        await cart.save(); // Bỏ product.save()
 
-        // 🧮 Cập nhật tổng tiền
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
@@ -168,7 +157,6 @@ class CartService {
         return cart;
     }
 
-    // ❌ Xóa sản phẩm
     async removeItemFromCart(userId, itemId) {
         const cart = await Cart.findOne({ userId });
         if (!cart) throw new Error('Không tìm thấy giỏ hàng');
@@ -176,18 +164,10 @@ class CartService {
         const cartItem = cart.products.id(itemId);
         if (!cartItem) throw new Error('Không tìm thấy sản phẩm trong giỏ hàng');
 
-        const product = await Product.findById(cartItem.productId);
-        if (!product) throw new Error('Không tìm thấy sản phẩm trong kho');
-
-        const variant = product.variants.id(cartItem.sizeId);
-        if (!variant) throw new Error('Không tìm thấy size sản phẩm');
-
-        variant.stock += cartItem.quantity;
+        // Xóa khỏi giỏ, không cộng lại stock
         cart.products.pull(itemId);
+        await cart.save();
 
-        await Promise.all([cart.save(), product.save()]);
-
-        // 🧮 Cập nhật tổng tiền sau khi xóa
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
@@ -207,39 +187,32 @@ class CartService {
         if (now < newCoupon.startDate || now > newCoupon.endDate) {
             throw new BadRequestError('Mã giảm giá đã hết hạn hoặc chưa được kích hoạt');
         }
-
         if (newCoupon.quantity <= 0) {
             throw new BadRequestError('Mã giảm giá đã hết lượt sử dụng');
         }
-
         if (cart.totalPrice < newCoupon.minPrice) {
             throw new BadRequestError(
                 `Đơn hàng phải tối thiểu ${newCoupon.minPrice.toLocaleString()} VND để dùng mã này`,
             );
         }
 
-        // 🧾 Nếu giỏ hàng đã có mã trước đó → hoàn lại lượt
         if (cart.coupon && cart.coupon.code) {
             const oldCoupon = await Coupon.findOne({ nameCoupon: cart.coupon.code });
             if (oldCoupon) {
-                oldCoupon.quantity += 1; // hoàn lại lượt
+                oldCoupon.quantity += 1;
                 await oldCoupon.save();
             }
         }
 
-        // ✅ Tính giảm mới
         const discountAmount = (cart.totalPrice * newCoupon.discount) / 100;
         const finalPrice = Math.max(cart.totalPrice - discountAmount, 0);
 
-        // ✅ Cập nhật lại thông tin mã mới
         cart.coupon = {
             code: newCoupon.nameCoupon,
             discount: newCoupon.discount,
             discountAmount,
         };
         cart.finalPrice = finalPrice;
-
-        // ✅ Giảm lượt của mã mới
         newCoupon.quantity -= 1;
 
         await Promise.all([cart.save(), newCoupon.save()]);

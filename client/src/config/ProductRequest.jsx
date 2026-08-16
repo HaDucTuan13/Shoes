@@ -43,37 +43,51 @@ export const requestSearchProduct = async (query) => {
     return res.data;
 };
 
+// export const requestFilterProduct = async (filters) => {
+//     const queryParams = new URLSearchParams();
+
+//     // Add filters to query params
+//     if (filters.category && filters.category !== 'all') {
+//         queryParams.append('category', filters.category);
+//     }
+//     if (filters.priceMin) {
+//         queryParams.append('priceMin', filters.priceMin);
+//     }
+//     if (filters.priceMax) {
+//         queryParams.append('priceMax', filters.priceMax);
+//     }
+//     if (filters.size && filters.size !== 'all') {
+//         queryParams.append('size', filters.size);   
+//     }
+//     if (filters.color && filters.color !== 'all') {
+//         queryParams.append('color', filters.color);
+//     }
+//     if (filters.sortBy) {
+//         queryParams.append('sortBy', filters.sortBy);
+//     }
+//     if (filters.sortOrder) {
+//         queryParams.append('sortOrder', filters.sortOrder);
+//     }
+//     if (filters.page) {
+//         queryParams.append('page', filters.page);
+//     }
+//     if (filters.limit) {
+//         queryParams.append('limit', filters.limit);
+//     }
+
+//     const res = await request.get(`${apiProduct}/filter?${queryParams.toString()}`);
+//     return res.data;
+// };
+
 export const requestFilterProduct = async (filters) => {
     const queryParams = new URLSearchParams();
 
-    // Add filters to query params
-    if (filters.category && filters.category !== 'all') {
-        queryParams.append('category', filters.category);
-    }
-    if (filters.priceMin) {
-        queryParams.append('priceMin', filters.priceMin);
-    }
-    if (filters.priceMax) {
-        queryParams.append('priceMax', filters.priceMax);
-    }
-    if (filters.size && filters.size !== 'all') {
-        queryParams.append('size', filters.size);
-    }
-    if (filters.color && filters.color !== 'all') {
-        queryParams.append('color', filters.color);
-    }
-    if (filters.sortBy) {
-        queryParams.append('sortBy', filters.sortBy);
-    }
-    if (filters.sortOrder) {
-        queryParams.append('sortOrder', filters.sortOrder);
-    }
-    if (filters.page) {
-        queryParams.append('page', filters.page);
-    }
-    if (filters.limit) {
-        queryParams.append('limit', filters.limit);
-    }
+    Object.entries(filters).forEach(([key, value]) => {
+        // Chỉ thêm vào param nếu giá trị tồn tại và khác 'all'
+        if (value !== undefined && value !== null && value !== '' && value !== 'all') {
+            queryParams.append(key, value);
+        }
+    });
 
     const res = await request.get(`${apiProduct}/filter?${queryParams.toString()}`);
     return res.data;

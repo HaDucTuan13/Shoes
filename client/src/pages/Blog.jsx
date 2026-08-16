@@ -58,13 +58,13 @@ function ListBlogPage() {
             <main className="flex-1 bg-gray-50 py-12">
                 <div className="container mx-auto px-4">
                     {/* Tìm kiếm */}
-                    <div className="mb-8">
+                    <div className="mb-8 ">
                         <Search
                             placeholder="Tìm kiếm bài viết..."
                             enterButton={<SearchOutlined />}
                             size="large"
                             onChange={(e) => setSearchText(e.target.value)}
-                            className="max-w-md"
+                            className="max-w-md "
                         />
                     </div>
 

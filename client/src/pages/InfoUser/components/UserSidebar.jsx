@@ -71,7 +71,7 @@ function UserSidebar({ activeKey, onSelect, setActiveKey }) {
 
     return (
         <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100">
-            <div className="bg-gradient-to-r from-[#e45464] to-[#d70018] text-white p-6">
+            <div className="bg-gradient-to-r from-[#1f2937] to-[#111827] text-white p-6">
                 <div className="flex flex-col items-center">
                     <Badge
                         count={dataUser?.role === 'admin' ? <CrownOutlined style={{ color: '#f5c518' }} /> : 0}

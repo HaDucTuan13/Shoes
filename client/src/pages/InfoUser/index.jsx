@@ -73,7 +73,7 @@ function InfoUser() {
             theme={{
                 algorithm: theme.defaultAlgorithm,
                 token: {
-                    colorPrimary: '#d70018',
+                    colorPrimary: '#6f7892',
                     borderRadius: 6,
                 },
             }}

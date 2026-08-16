@@ -22,3 +22,8 @@ export const requestDeleteCategory = async (id) => {
     const res = await apiClient.delete(`${apiCategory}/delete/${id}`);
     return res.data;
 };
+
+export const requestGetCategoryTree = async () => {
+    const res = await request.get(`${apiCategory}/tree`);
+    return res.data;
+};

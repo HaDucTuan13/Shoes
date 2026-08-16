@@ -3,14 +3,16 @@ import Footer from '../components/Footer';
 import Header from '../components/Header';
 import { useEffect, useState } from 'react';
 import { requestGetProductById } from '../config/ProductRequest';
-import { ShoppingCart, Heart, Star, Minus, Plus, Check } from 'lucide-react';
+import { ShoppingCart, Heart, Star, Minus, Plus, Check, Ruler, X } from 'lucide-react'; 
 import { requestAddToCart } from '../config/CartRequest';
 import { toast } from 'react-toastify';
 import { useStore } from '../hooks/useStore';
 import CardBody from '../components/CardBody';
 import { requestCreateFavourite } from '../config/FavouriteRequest';
+import namnu from '../assets/size-namnu.jpg';
+import treem from '../assets/size-treem.jpg';
 
-function DetailProduct() {
+export default function DetailProduct() {
     const { id } = useParams();
     const [product, setProduct] = useState({});
     const [selectedColor, setSelectedColor] = useState(null);
@@ -21,6 +23,10 @@ function DetailProduct() {
     const [reviews, setReviews] = useState([]);
     const [productRelated, setProductRelated] = useState([]);
     const [showAllReviews, setShowAllReviews] = useState(false);
+    
+    // TRẠNG THÁI ĐÓNG/MỞ MODAL BẢNG SIZE & QUẢN LÝ TAB
+    const [isOpenSizeModal, setIsOpenSizeModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('nam'); // Mặc định hiển thị tab Nam
 
     const totalRating = reviews.reduce((acc, review) => acc + review.rating, 0);
     const avgRating = reviews.length > 0 ? totalRating / reviews.length : 0;
@@ -285,7 +291,18 @@ function DetailProduct() {
                             {/* Size Selection */}
                             {product.variants && product.variants.length > 0 && (
                                 <div>
-                                    <h3 className="text-base font-semibold text-gray-900 mb-3">Kích thước</h3>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-base font-semibold text-gray-900">Kích thước</h3>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setIsOpenSizeModal(true)}
+                                            className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors font-medium"
+                                        >
+                                            <Ruler className="w-3.5 h-3.5" />
+                                            <span>Hướng dẫn chọn size</span>
+                                        </button>
+                                    </div>
+                                    
                                     <div className="flex flex-wrap gap-2">
                                         {product.variants.map((variant) => (
                                             <button
@@ -454,66 +471,113 @@ function DetailProduct() {
                                                 {review.comment || 'Người dùng chưa để lại bình luận'}
                                             </p>
                                         </div>
-                                        {review.images && review.images.length > 0 && (
-                                            <div className="flex space-x-2 mb-3">
-                                                {review.images.map((image, index) => (
-                                                    <img
-                                                        key={index}
-                                                        src={`${import.meta.env.VITE_API_URL}/uploads/previewProducts/${image}`}
-                                                        alt={`Review ${index + 1}`}
-                                                        className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 ))}
-
-                                {reviews.length > 3 && (
-                                    <div className="text-center pt-4">
-                                        <button
-                                            onClick={() => setShowAllReviews(!showAllReviews)}
-                                            className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                                        >
-                                            {showAllReviews ? 'Thu gọn' : `Xem thêm ${reviews.length - 3} đánh giá`}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Related Products Section */}
-                    <div className="bg-gray-50 p-8 rounded-2xl">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-3">Sản Phẩm Liên Quan</h2>
-                            <div className="w-20 h-1 bg-gradient-to-r from-red-500 to-pink-500 mx-auto rounded-full"></div>
-                            <p className="text-gray-600 mt-3">Khám phá thêm những sản phẩm tương tự</p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {productRelated.map((item) => (
-                                <div
-                                    key={item._id}
-                                    className="transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
-                                >
-                                    <CardBody product={item} />
-                                </div>
-                            ))}
-                        </div>
-                        {productRelated.length === 0 && (
-                            <div className="text-center py-12">
-                                <div className="text-gray-400 text-6xl mb-4">📦</div>
-                                <h3 className="text-xl font-semibold text-gray-700 mb-2">Chưa có sản phẩm liên quan</h3>
-                                <p className="text-gray-500">Hãy khám phá các sản phẩm khác trong cửa hàng</p>
                             </div>
                         )}
                     </div>
                 </div>
             </main>
 
+            {/* ================= MODAL HIỂN THỊ HÌNH ẢNG BẢNG SIZE ================= */}
+            {isOpenSizeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+                    {/* Khung Modal */}
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        
+                        {/* Header Modal */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-bold text-gray-900">Bảng Quy Đổi Kích Cỡ Giày</h3>
+                            <button 
+                                onClick={() => setIsOpenSizeModal(false)}
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Thanh điều hướng Tabs */}
+                        <div className="flex border-b border-gray-200 bg-gray-50 px-4 pt-2 gap-1">
+                            {['nam', 'treem'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                                        activeTab === tab 
+                                            ? 'bg-white text-black border-t border-x border-gray-200 shadow-sm font-semibold' 
+                                            : 'text-gray-600 hover:text-black hover:bg-gray-100'
+                                    }`}
+                                >
+                                    {tab === 'nam' && 'Giày Nam Nữ'}
+                                    {tab === 'treem' && 'Trẻ Em (Kid)'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Nội dung hình ảnh theo từng Tab */}
+                        <div className="p-6 max-h-[70vh] overflow-y-auto bg-white flex flex-col items-center justify-center">
+                            
+                            {activeTab === 'nam' && (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <p className="text-xs text-gray-500 mb-2">Bảng quy đổi kích thước size giày chuẩn Nam</p>
+                                    <img 
+                                        src={namnu} 
+                                        alt="Bảng quy đổi size giày Nam" 
+                                        className="max-w-full h-auto rounded-lg shadow-sm border border-gray-100 object-contain"
+                                    />
+                                </div>
+                            )}
+{/* 
+                            {activeTab === 'nu' && (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <p className="text-xs text-gray-500 mb-2">Bảng quy đổi kích thước size giày chuẩn Nữ</p>
+                                    <img 
+                                        src="/images/size-nu.png" 
+                                        alt="Bảng quy đổi size giày Nữ" 
+                                        className="max-w-full h-auto rounded-lg shadow-sm border border-gray-100 object-contain"
+                                    />
+                                </div>
+                            )} */}
+
+                            {activeTab === 'treem' && (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <p className="text-xs text-gray-500 mb-2">Bảng quy đổi kích thước size giày chuẩn Trẻ Em</p>
+                                    <img 
+                                        src={treem}
+                                        alt="Bảng quy đổi size giày Trẻ em" 
+                                        className="max-w-full h-auto rounded-lg shadow-sm border border-gray-100 object-contain"
+                                    />
+                                </div>
+                            )}
+{/* 
+                            {activeTab === 'tip' && (
+                                <div className="w-full flex flex-col items-center gap-2">
+                                    <p className="text-xs text-gray-500 mb-2">Mẹo tự đo chiều dài và độ rộng bàn chân tại nhà</p>
+                                    <img 
+                                        src="/images/tip-chon-size.png" 
+                                        alt="Mẹo đo size giày Peak" 
+                                        className="max-w-full h-auto rounded-lg shadow-sm border border-gray-100 object-contain"
+                                    />
+                                </div>
+                            )} */}
+
+                        </div>
+
+                        {/* Footer Modal */}
+                        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-end">
+                            <button
+                                onClick={() => setIsOpenSizeModal(false)}
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-semibold rounded-lg transition-colors"
+                            >
+                                Đóng
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
             <Footer />
         </div>
     );
 }
-
-export default DetailProduct;

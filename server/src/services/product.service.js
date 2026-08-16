@@ -88,8 +88,22 @@ class ProductService {
     }
 
     async getProductByCategory(category) {
-        const product = await modelProduct.find({ category });
-        return product;
+        const products = await modelProduct.find({ category });
+
+        const updatedProducts = await Promise.all(
+            products.map(async (product) => {
+                const productObj = product.toObject();
+
+                const findFlashSale = await modelFlashSale.findOne({ productId: productObj._id });
+                if (findFlashSale) {
+                    productObj.discount = findFlashSale.discount;
+                }
+
+                return productObj;
+            })
+        );
+
+        return updatedProducts;
     }
 
     async getProductById(id) {
@@ -113,19 +127,36 @@ class ProductService {
         }
         return product;
     }
+    
     async searchProduct(query) {
-        const product = await modelProduct.find({ name: { $regex: query, $options: 'i' } });
-        const findFlashSale = await modelFlashSale.findOne({ productId: product._id });
-        if (findFlashSale) {
-            product.discount = findFlashSale.discount;
-        }
-        const findProductRelated = (await modelProduct.find({ category: product.category })).filter(
-            (item) => item._id.toString() !== product._id.toString(),
+        // 1. Tìm tất cả sản phẩm khớp với tên
+        const products = await modelProduct.find({ name: { $regex: query, $options: 'i' } });
+
+        // 2. Duyệt qua từng sản phẩm để map thông tin Flash Sale và Sản phẩm liên quan
+        const updatedProducts = await Promise.all(
+            products.map(async (product) => {
+                // Chuyển product sang Object thuần của JS để có thể thêm/sửa thuộc tính linh hoạt
+                const productObj = product.toObject();
+
+                // Check Flash Sale cho từng sản phẩm
+                const findFlashSale = await modelFlashSale.findOne({ productId: productObj._id });
+                if (findFlashSale) {
+                    productObj.discount = findFlashSale.discount;
+                }
+
+                // Tìm sản phẩm liên quan cho từng sản phẩm (nếu UI tìm kiếm của bạn cần hiển thị)
+                const findProductRelated = await modelProduct.find({ 
+                    category: productObj.category,
+                    _id: { $ne: productObj._id } // Loại trừ chính nó luôn bằng query Mongoose thay vì filter sau
+                });
+                
+                productObj.productRelated = findProductRelated || [];
+
+                return productObj;
+            })
         );
-        if (findProductRelated) {
-            product.productRelated = findProductRelated;
-        }
-        return product;
+
+        return updatedProducts;
     }
 
     async filterProduct(
@@ -313,6 +344,28 @@ class ProductService {
             return result;
         } catch (error) {
             throw new Error(`Error filtering products: ${error.message}`);
+        }
+    }
+
+async countProductsByQuery({ categoryName, priceMax, gender }) {
+        try {
+            let matchQuery = { status: 'active' };
+
+            if (priceMax) {
+                matchQuery.price = { $lt: Number(priceMax) };
+            }
+
+            if (gender === 'nam') {
+                matchQuery.name = { $regex: 'Nam', $options: 'i' };
+            } else if (gender === 'nu') {
+                matchQuery.name = { $regex: 'Nữ', $options: 'i' };
+            }
+
+            const count = await modelProduct.countDocuments(matchQuery);
+            return count;
+        } catch (error) {
+            console.error("Lỗi đếm sản phẩm:", error);
+            return 0;
         }
     }
 }

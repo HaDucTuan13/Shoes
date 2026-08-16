@@ -1,11 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button, Input, Spin, Avatar, Badge, Tooltip, Typography } from 'antd';
-import { SendOutlined, RobotOutlined, UserOutlined, CloseOutlined, MessageOutlined } from '@ant-design/icons';
+import { SendOutlined, RobotOutlined, CloseOutlined, MessageOutlined } from '@ant-design/icons';
 import { useStore } from '../hooks/useStore';
 import { useNavigate } from 'react-router-dom';
 import { requestChatbot, requestGetMessageChatbot } from '../config/UserRequest';
 
 const { Text } = Typography;
+
+const WELCOME_MESSAGE = {
+    _id: 'welcome',
+    sender: 'bot',
+    content: `Xin chào! 👋 Mình là **SneakerBot** – trợ lý tư vấn giày của cửa hàng.
+
+Mình có thể giúp bạn:
+👟 Tìm giày theo phong cách, màu sắc, size
+💰 Gợi ý sản phẩm theo ngân sách
+🔥 Giới thiệu các mẫu đang hot hoặc đang sale
+
+Bạn đang tìm kiếm loại giày nào? Cứ hỏi mình nhé! 😊`,
+    timestamp: new Date(),
+};
 
 function Chatbot() {
     const [isOpen, setIsOpen] = useState(false);
@@ -31,19 +45,15 @@ function Chatbot() {
         const fetchMessageChatbot = async () => {
             try {
                 const res = await requestGetMessageChatbot();
-                setMessages(res.metadata);
+                if (res.metadata && res.metadata.length > 0) {
+                    setMessages(res.metadata);
+                } else {
+                    // Chưa có tin nhắn nào → hiện lời chào
+                    setMessages([WELCOME_MESSAGE]);
+                }
             } catch (error) {
                 console.error('Error fetching messages:', error);
-                // Set default welcome message if no messages
-                setMessages([
-                    {
-                        _id: 'welcome',
-                        sender: 'bot',
-                        content:
-                            '👋 Xin chào! Tôi là AI Assistant của khách sạn. Tôi có thể giúp bạn tư vấn về phòng, dịch vụ, đặt phòng và nhiều thông tin khác. Bạn cần hỗ trợ gì? 😊',
-                        timestamp: new Date(),
-                    },
-                ]);
+                setMessages([WELCOME_MESSAGE]);
             }
         };
         if (!dataUser._id) return;
@@ -54,42 +64,29 @@ function Chatbot() {
         scrollToBottom();
     }, [messages]);
 
-    // Scroll when loading state changes
     useEffect(() => {
-        if (!isLoading) {
-            scrollToBottom();
-        }
+        if (!isLoading) scrollToBottom();
     }, [isLoading]);
 
-    // Scroll when chat opens
     useEffect(() => {
-        if (isOpen && messages.length > 0) {
-            scrollToBottom();
-        }
+        if (isOpen && messages.length > 0) scrollToBottom();
     }, [isOpen]);
 
-    // Reset unread count when opening chat
     useEffect(() => {
-        if (isOpen) {
-            setUnreadCount(0);
-        }
+        if (isOpen) setUnreadCount(0);
     }, [isOpen]);
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
 
         if (!dataUser._id) {
-            // Show login prompt
             const shouldLogin = window.confirm(
                 '🔐 Bạn cần đăng nhập để sử dụng chatbot. Bạn có muốn đăng nhập ngay bây giờ không?',
             );
-            if (shouldLogin) {
-                navigate('/login');
-            }
+            if (shouldLogin) navigate('/login');
             return;
         }
 
-        // Add user message
         const userMessage = {
             _id: Date.now().toString(),
             sender: 'user',
@@ -99,15 +96,10 @@ function Chatbot() {
         setMessages((prev) => [...prev, userMessage]);
         setInputValue('');
         setIsLoading(true);
-
-        // Scroll after adding user message
         setTimeout(() => scrollToBottom(), 50);
 
         try {
-            // Call API to get bot response
             const res = await requestChatbot({ question: inputValue });
-
-            // Add bot response
             const botMessage = {
                 _id: (Date.now() + 1).toString(),
                 sender: 'bot',
@@ -115,16 +107,9 @@ function Chatbot() {
                 timestamp: new Date(),
             };
             setMessages((prev) => [...prev, botMessage]);
-
-            // Scroll after adding bot message
             setTimeout(() => scrollToBottom(), 100);
-
-            // Increment unread count if chat is minimized
-            if (!isOpen) {
-                setUnreadCount((prev) => prev + 1);
-            }
+            if (!isOpen) setUnreadCount((prev) => prev + 1);
         } catch (error) {
-            // Add error message
             const errorMessage = {
                 _id: (Date.now() + 1).toString(),
                 sender: 'bot',
@@ -132,8 +117,6 @@ function Chatbot() {
                 timestamp: new Date(),
             };
             setMessages((prev) => [...prev, errorMessage]);
-
-            // Scroll after adding error message
             setTimeout(() => scrollToBottom(), 100);
         } finally {
             setIsLoading(false);
@@ -148,8 +131,7 @@ function Chatbot() {
     };
 
     const formatTime = (timestamp) => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('vi-VN', {
+        return new Date(timestamp).toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
         });
@@ -170,7 +152,11 @@ function Chatbot() {
                                     className="bg-white/20 border-2 border-white/30"
                                 />
                                 <div>
-                                    <h3 className="font-semibold text-lg">AI hỗ trợ khách hàng</h3>
+                                    <h3 className="font-semibold text-lg">SneakerBot</h3>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                        <span className="text-xs text-white/80">Đang hoạt động</span>
+                                    </div>
                                 </div>
                             </div>
                             <Button
@@ -221,12 +207,13 @@ function Chatbot() {
                                                     : 'text-left text-gray-400'
                                             }`}
                                         >
-                                            {formatTime(message.timestamp)}
+                                            {formatTime(message.timestamp || message.createdAt)}
                                         </Text>
                                     </div>
                                 </div>
                             </div>
                         ))}
+
                         {isLoading && (
                             <div className="flex justify-start">
                                 <div className="flex items-start gap-2">
@@ -238,7 +225,7 @@ function Chatbot() {
                                     <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm">
                                         <div className="flex items-center gap-2">
                                             <Spin size="small" />
-                                            <Text className="text-gray-500 text-sm">AI đang trả lời...</Text>
+                                            <Text className="text-gray-500 text-sm">SneakerBot đang trả lời...</Text>
                                         </div>
                                     </div>
                                 </div>
@@ -282,7 +269,7 @@ function Chatbot() {
                     </div>
                 </div>
             ) : (
-                <Tooltip title="Chat với AI Assistant" placement="left">
+                <Tooltip title="Chat với SneakerBot" placement="left">
                     <div className="relative">
                         <button
                             onClick={() => setIsOpen(true)}

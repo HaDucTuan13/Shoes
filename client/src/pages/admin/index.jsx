@@ -25,13 +25,12 @@ function Admin() {
         const fetchDashboardAdmin = async () => {
             try {
                 await requestGetDashboardAdmin();
-                return;
             } catch (error) {
                 navigate('/');
             }
         };
         fetchDashboardAdmin();
-    });
+    }, []); // thêm [] vào đây, không có thì chạy vô hạn
 
     return (
         <Layout className="min-h-screen">

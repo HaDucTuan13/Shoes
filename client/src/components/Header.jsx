@@ -108,7 +108,7 @@ function Header() {
     ];
 
     return (
-        <div className="bg-[#ed1d24] text-white">
+        <div className="bg-[#111827] text-white">
             <div className="w-[90%] mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo Section */}
@@ -131,7 +131,7 @@ function Header() {
                                 onChange={handleSearchInputChange}
                                 onFocus={() => query.trim() && setShowResults(true)}
                             />
-                            <button className="absolute right-0 top-0 h-full px-3 bg-[#202020] rounded-r-md hover:bg-gray-700 transition-colors">
+                            <button className="absolute right-0 top-0 h-full px-3 bg-[#1f2937] rounded-r-md hover:bg-[#374151] transition-colors">
                                 <Search className="w-5 h-5 text-white" />
                             </button>
 

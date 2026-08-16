@@ -113,7 +113,7 @@ function Contact() {
 
             <main>
                 {/* Hero Section */}
-                <div className="relative h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 overflow-hidden">
+                {/* <div className="relative h-80 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 overflow-hidden">
                     <div className="absolute inset-0 bg-black opacity-30"></div>
                     <div className="relative z-10 flex items-center justify-center h-full">
                         <div className="text-center text-white max-w-4xl mx-auto px-4">
@@ -133,7 +133,7 @@ function Contact() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Contact Form & Info */}
                 <div className="container mx-auto px-4 py-16">

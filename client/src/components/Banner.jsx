@@ -1,5 +1,6 @@
 import banner1 from '../assets/banner1.jpg';
 import banner2 from '../assets/banner2.jpg';
+import banner3 from '../assets/banner3.jpg';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
@@ -12,7 +13,7 @@ function Banner() {
         slidesToShow: 1,
         slidesToScroll: 1,
         autoplay: true,
-        autoplaySpeed: 3000,
+        autoplaySpeed: 8000,
         pauseOnHover: true,
         fade: true,
         cssEase: 'linear',
@@ -50,13 +51,18 @@ function Banner() {
     const bannerData = [
         {
             id: 1,
-            image: banner1,
+            image: banner2,
             alt: 'Banner 1 - Giày thể thao',
         },
         {
             id: 2,
-            image: banner2,
+            image: banner1,
             alt: 'Banner 2 - Giày cao cấp',
+        },
+        {
+            id: 3,
+            image: banner3,
+            alt: 'Banner 3 - Giày',
         },
     ];
 

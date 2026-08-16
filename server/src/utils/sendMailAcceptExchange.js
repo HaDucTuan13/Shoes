@@ -29,7 +29,7 @@ const SendMailAcceptExchange = async (email, orderCode) => {
             from: `"Moho" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Xác nhận yêu cầu đổi hàng của bạn',
-            text: `Yêu cầu đổi hàng cho đơn ${orderCode} của bạn đã được chấp nhận. Vui lòng gửi hàng về địa chỉ: Đền Lừ, Hoàng Mai, Hà Nội.`,
+            text: `Yêu cầu đổi hàng cho đơn ${orderCode} của bạn đã được chấp nhận. Vui lòng gửi hàng về địa chỉ: Nam Từ Liêm, Hà Nội.`,
             html: `
             <!DOCTYPE html>
             <html lang="vi">
@@ -105,7 +105,7 @@ const SendMailAcceptExchange = async (email, orderCode) => {
                             Vui lòng gửi sản phẩm cần đổi về địa chỉ dưới đây:
                         </div>
                         <div class="address-box">
-                            Đền Lừ, Hoàng Mai, Hà Nội
+                            Nam Từ Liêm, Hà Nội
                         </div>
                         <div class="message">
                             Sau khi nhận được hàng, chúng tôi sẽ tiến hành kiểm tra và gửi sản phẩm thay thế trong thời gian sớm nhất.
@@ -113,7 +113,7 @@ const SendMailAcceptExchange = async (email, orderCode) => {
                     </div>
                     <div class="footer">
                         Trân trọng,<br/>
-                        <strong>Đội ngũ Moho</strong>
+                        <strong></strong>
                     </div>
                 </div>
             </body>

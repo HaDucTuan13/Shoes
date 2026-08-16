@@ -48,7 +48,7 @@ function Category() {
                                 onClick={() => setActiveCategory(category._id)}
                                 className={`px-4 py-2 rounded-md font-medium text-sm transition-colors duration-200 ${
                                     activeCategory === category._id
-                                        ? 'bg-red-700 text-white'
+                                        ? 'bg-[#111827] text-white'
                                         : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                                 }`}
                             >

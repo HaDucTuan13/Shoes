@@ -305,9 +305,9 @@ function OrderHistory() {
                                     </Tag>
                                     <div className="text-right">
                                         <div className="font-bold text-lg text-blue-600">
-                                            {formatCurrency(order.finalPrice)}
+                                            {formatCurrency(order.finalPrice > 0 ? order.finalPrice : order.totalPrice)}
                                         </div>
-                                        {order.totalPrice !== order.finalPrice && (
+                                        {order.finalPrice > 0 && order.coupon?.code && (
                                             <div className="text-sm text-gray-400 line-through">
                                                 {formatCurrency(order.totalPrice)}
                                             </div>
@@ -404,7 +404,7 @@ function OrderHistory() {
                                         )}
                                         <Descriptions.Item label="Thành tiền">
                                             <span className="text-lg font-bold text-blue-600">
-                                                {formatCurrency(order.finalPrice)}
+                                                {formatCurrency(order.finalPrice > 0 ? order.finalPrice : order.totalPrice)}
                                             </span>
                                         </Descriptions.Item>
                                     </Descriptions>
