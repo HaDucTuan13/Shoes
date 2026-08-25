@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
 
 function Cart() {
-    const { cartData, fetchCart, couponData } = useStore();
+    const { cartData, fetchCart, couponData, dataUser } = useStore();
     const [selectedCoupon, setSelectedCoupon] = useState(null);
     const [couponCode, setCouponCode] = useState('');
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -165,26 +165,56 @@ function Cart() {
     //     );
     // }
 
-if (!cartData || cartData.length === 0) {
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="text-center py-16">
-                    <ShoppingBag className="w-24 h-24 text-gray-300 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Giỏ hàng trống</h2>
-                    <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
-                    <Link to="/">
-                        <button className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors">
-                            Tiếp tục mua sắm
-                        </button>
-                    </Link>
+    if (!dataUser?._id) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+                    <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100 max-w-lg mx-auto p-8">
+                        <ShoppingBag className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Bạn chưa đăng nhập</h2>
+                        <p className="text-gray-600 mb-6 text-sm">
+                            Vui lòng đăng nhập tài khoản để xem giỏ hàng và tiến hành đặt mua sản phẩm.
+                        </p>
+                        <div className="flex justify-center gap-3">
+                            <Link to="/login">
+                                <button className="bg-red-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-red-700 transition-colors cursor-pointer">
+                                    Đăng nhập ngay
+                                </button>
+                            </Link>
+                            <Link to="/category">
+                                <button className="border border-gray-300 text-gray-700 px-6 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-colors cursor-pointer">
+                                    Xem sản phẩm
+                                </button>
+                            </Link>
+                        </div>
+                    </div>
                 </div>
+                <Footer />
             </div>
-            <Footer />
-        </div>
-    );
-}
+        );
+    }
+
+    if (!cartData || cartData.length === 0) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="text-center py-16">
+                        <ShoppingBag className="w-24 h-24 text-gray-300 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Giỏ hàng trống</h2>
+                        <p className="text-gray-600 mb-8">Bạn chưa có sản phẩm nào trong giỏ hàng</p>
+                        <Link to="/">
+                            <button className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer">
+                                Tiếp tục mua sắm
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+                <Footer />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">

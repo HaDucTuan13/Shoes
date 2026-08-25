@@ -123,7 +123,14 @@ export default function DetailProduct() {
         );
     };
 
+    const navigate = useNavigate();
+
     const handleAddToFavourite = async () => {
+        if (!dataUser?._id) {
+            toast.info('Vui lòng đăng nhập để lưu sản phẩm yêu thích');
+            navigate('/login');
+            return;
+        }
         try {
             const data = { productId: product._id };
             await requestCreateFavourite(data);
@@ -131,11 +138,16 @@ export default function DetailProduct() {
             toast.success('Thêm vào yêu thích thành công');
         } catch (error) {
             fetchProductById();
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
         }
     };
 
     const handleAddToCart = async () => {
+        if (!dataUser?._id) {
+            toast.info('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+            navigate('/login');
+            return;
+        }
         try {
             const data = {
                 productId: product._id,
@@ -147,13 +159,16 @@ export default function DetailProduct() {
             fetchCart();
             toast.success('Thêm vào giỏ hàng thành công');
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
         }
     };
 
-    const navigate = useNavigate();
-
     const handleBuyNow = async () => {
+        if (!dataUser?._id) {
+            toast.info('Vui lòng đăng nhập để tiến hành mua hàng');
+            navigate('/login');
+            return;
+        }
         try {
             const data = {
                 productId: product._id,
@@ -165,7 +180,7 @@ export default function DetailProduct() {
             fetchCart();
             navigate('/cart');
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
         }
     };
 

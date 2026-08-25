@@ -17,9 +17,17 @@ function Checkout() {
         phone: '',
         address: '',
     });
-    const [paymentMethod, setPaymentMethod] = useState('cod');
+    const { dataUser } = useStore();
+    const navigate = useNavigate();
 
     useEffect(() => {
+        const token = document.cookie.includes('logged=');
+        if (!token) {
+            toast.warning('Vui lòng đăng nhập để tiến hành thanh toán');
+            navigate('/login');
+            return;
+        }
+
         const fetchCart = async () => {
             try {
                 setIsLoading(true);
@@ -33,7 +41,7 @@ function Checkout() {
             }
         };
         fetchCart();
-    }, []);
+    }, [navigate]);
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', {
@@ -63,8 +71,6 @@ function Checkout() {
             [name]: value,
         }));
     };
-
-    const navigate = useNavigate();
 
     const validatePhone = (phone) => {
     const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
