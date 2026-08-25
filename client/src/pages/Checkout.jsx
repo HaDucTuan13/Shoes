@@ -17,7 +17,8 @@ function Checkout() {
         phone: '',
         address: '',
     });
-    const { dataUser } = useStore();
+    const [paymentMethod, setPaymentMethod] = useState('cod');
+    const { dataUser, fetchCart: fetchStoreCart } = useStore();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -98,20 +99,25 @@ function Checkout() {
             });
             if (paymentMethod === 'cod') {
                 const res = await requestCreatePayment({ paymentMethod });
+                fetchStoreCart();
                 navigate(`/payment/success/${res.metadata._id}`);
             } else if (paymentMethod === 'momo') {
                 const res = await requestCreatePayment({ paymentMethod });
+                fetchStoreCart();
                 window.location.href = res.metadata.payUrl;
             } else if (paymentMethod === 'vnpay') {
                 const res = await requestCreatePayment({ paymentMethod });
+                fetchStoreCart();
                 window.location.href = res.metadata;
             } else if (paymentMethod === 'bank') {
                 toast.info('Vui lòng chuyển khoản theo thông tin đã được gửi qua email');
                 const res = await requestCreatePayment({ paymentMethod });
+                fetchStoreCart();
                 navigate(`/payment/success/${res.metadata._id}`);
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+            console.error('Checkout error:', error);
+            toast.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra');
         } finally {
             setIsSubmitting(false);
         }
