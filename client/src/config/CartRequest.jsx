@@ -28,6 +28,11 @@ export const requestApplyCoupon = async (data) => {
     return res.data;
 };
 
+export const requestRemoveCoupon = async () => {
+    const res = await apiClient.delete(`${apiCart}/remove-coupon`);
+    return res.data;
+};
+
 export const requestUpdateInfoCart = async (data) => {
     const res = await apiClient.put(`${apiCart}/update-info-cart`, data);
     return res.data;

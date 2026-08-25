@@ -30,19 +30,24 @@ function PaymentSucces() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const calculateSubtotal = () => {
-        return payment?.items?.reduce((sum, item) => sum + item.subtotal, 0) || 0;
+        if (payment?.totalPrice) return Math.round(Number(payment.totalPrice));
+        return payment?.items?.reduce((sum, item) => sum + Math.round(Number(item.subtotal || 0)), 0) || 0;
     };
 
     const calculateCouponDiscount = () => {
-        return payment?.coupon?.discountAmount || 0;
+        return Math.round(Number(payment?.coupon?.discountAmount || 0));
     };
 
     const calculateTotal = () => {
-        return calculateSubtotal() - calculateCouponDiscount();
+        if (payment?.finalPrice !== undefined && payment?.finalPrice !== null && payment?.finalPrice > 0) {
+            return Math.round(Number(payment.finalPrice));
+        }
+        return Math.max(0, calculateSubtotal() - calculateCouponDiscount());
     };
 
     if (isLoading) {
@@ -173,7 +178,11 @@ function PaymentSucces() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ngày đặt</label>
-                                    <p className="text-sm text-gray-900">{new Date().toLocaleDateString('vi-VN')}</p>
+                                    <p className="text-sm text-gray-900">
+                                        {payment.createdAt
+                                            ? new Date(payment.createdAt).toLocaleDateString('vi-VN')
+                                            : new Date().toLocaleDateString('vi-VN')}
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>

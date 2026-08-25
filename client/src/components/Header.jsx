@@ -13,6 +13,7 @@ import { toast } from 'react-toastify';
 import useDebounce from '../hooks/useDebounce';
 import { useEffect, useState } from 'react';
 import { requestSearchProduct } from '../config/ProductRequest';
+import { requestGetCategoryTree } from '../config/CategoryRequest';
 
 function Header() {
     const { dataUser, cartData } = useStore();
@@ -21,6 +22,7 @@ function Header() {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
+    const [categoryTree, setCategoryTree] = useState([]);
 
     const handleLogout = () => {
         try {
@@ -35,6 +37,19 @@ function Header() {
     };
 
     const debounce = useDebounce(query, 500);
+
+    // Fetch categories tree for navigation
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await requestGetCategoryTree();
+                setCategoryTree(res.metadata || []);
+            } catch (error) {
+                console.error('Error fetching categories for header:', error);
+            }
+        };
+        fetchCategories();
+    }, []);
 
     useEffect(() => {
         const fetchSearchProduct = async () => {
@@ -86,11 +101,12 @@ function Header() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const calculateDiscountPrice = (originalPrice, discount) => {
-        return originalPrice - (originalPrice * discount) / 100;
+        return Math.round(Number(originalPrice || 0) * (1 - Number(discount || 0) / 100));
     };
 
     const handleSearchInputChange = (e) => {
@@ -232,14 +248,72 @@ function Header() {
                                 </div>
                             </div>
                         </Link>
-                        <Link to={'/category'}>
-                            <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-300 transition-colors">
-                                <ShoppingCart className="w-5 h-5" />
-                                <div className="text-sm">
-                                    <div>Sản phẩm</div>
+                        <Dropdown
+                            placement="bottom"
+                            trigger={['hover']}
+                            dropdownRender={() => (
+                                <div className="bg-white rounded-xl shadow-2xl border border-gray-100 p-5 min-w-[550px] max-w-[800px] text-gray-900 mt-2 z-50">
+                                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+                                        <span className="font-bold !text-gray-900 text-sm tracking-wide">DANH MỤC SẢN PHẨM</span>
+                                        <Link
+                                            to="/category"
+                                            className="text-xs font-semibold !text-gray-600 hover:!text-black transition-colors"
+                                            style={{ color: '#4b5563' }}
+                                        >
+                                            Xem tất cả sản phẩm &rarr;
+                                        </Link>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-6">
+                                        {categoryTree.length > 0 ? (
+                                            categoryTree.map((parentCat) => (
+                                                <div key={parentCat._id} className="space-y-2">
+                                                    <Link
+                                                        to={`/category?category=${parentCat._id}`}
+                                                        className="block font-bold !text-black text-sm hover:!text-gray-600 pb-1.5 border-b border-gray-100 transition-colors uppercase tracking-wide"
+                                                        style={{ color: '#111827' }}
+                                                    >
+                                                        {parentCat.categoryName}
+                                                    </Link>
+                                                    <ul className="space-y-1 pt-1">
+                                                        {parentCat.children && parentCat.children.length > 0 ? (
+                                                            parentCat.children.map((subCat) => (
+                                                                <li key={subCat._id}>
+                                                                    <Link
+                                                                        to={`/category?category=${subCat._id}`}
+                                                                        className="text-xs !text-gray-700 hover:!text-black hover:font-semibold transition-colors inline-block py-1"
+                                                                        style={{ color: '#374151' }}
+                                                                    >
+                                                                        {subCat.categoryName}
+                                                                    </Link>
+                                                                </li>
+                                                            ))
+                                                        ) : (
+                                                            <li className="text-xs text-gray-400 italic">Chưa có mục con</li>
+                                                        )}
+                                                    </ul>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-3 text-center text-sm text-gray-400 py-3">
+                                                <Link to="/category" className="!text-black hover:underline" style={{ color: '#111827' }}>
+                                                    Xem tất cả sản phẩm
+                                                </Link>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </Link>
+                            )}
+                        >
+                            <Link to={'/category'}>
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-300 transition-colors py-2">
+                                    <ShoppingCart className="w-5 h-5" />
+                                    <div className="text-sm flex items-center gap-1">
+                                        <div>Sản phẩm</div>
+                                        <DownOutlined className="text-[10px] opacity-70" />
+                                    </div>
+                                </div>
+                            </Link>
+                        </Dropdown>
                         <Link to={'/contact'}>
                             <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-300 transition-colors">
                                 <Phone className="w-5 h-5" />

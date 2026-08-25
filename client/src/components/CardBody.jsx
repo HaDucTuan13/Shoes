@@ -6,13 +6,13 @@ import { requestAddToCart } from '../config/CartRequest';
 import { useStore } from '../hooks/useStore';
 
 function discountPrice(price, discount) {
-    return price - (price * discount) / 100;
+    return Math.round(Number(price || 0) * (1 - Number(discount || 0) / 100));
 }
 
 function CardBody({ product }) {
     const sumStock = product?.variants?.reduce((acc, curr) => acc + curr.stock, 0);
     const hasDiscount = product?.discount > 0;
-    const finalPrice = hasDiscount ? discountPrice(product?.price, product?.discount) : product?.price;
+    const finalPrice = hasDiscount ? discountPrice(product?.price, product?.discount) : Math.round(Number(product?.price || 0));
 
     const { fetchCart } = useStore();
 
@@ -24,29 +24,16 @@ function CardBody({ product }) {
                     <img
                         src={`${import.meta.env.VITE_URL_IMAGE}/uploads/products/${product?.colors?.[0]?.images}`}
                         alt={product?.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                 </Link>
 
                 {/* Discount Badge */}
                 {hasDiscount && (
-                    <div className="absolute top-3 left-3">
-                        <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-                            -{product?.discount}%
-                        </div>
+                    <div className="absolute top-3 left-3 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-semibold">
+                        -{product?.discount}%
                     </div>
                 )}
-
-                {/* Featured Badge */}
-                {product?.isFeatured && (
-                    <div className="absolute top-3 right-3">
-                        <div className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-                            HOT
-                        </div>
-                    </div>
-                )}
-
-                {/* Hover Overlay */}
             </div>
 
             {/* Product Info */}
@@ -61,10 +48,10 @@ function CardBody({ product }) {
                     <div className="flex items-center gap-2">
                         {hasDiscount && (
                             <span className="text-gray-400 text-sm line-through">
-                                {product?.price?.toLocaleString()} VND
+                                {Math.round(Number(product?.price || 0)).toLocaleString('vi-VN')} VND
                             </span>
                         )}
-                        <span className="text-red-600 font-bold text-lg">{finalPrice?.toLocaleString()} VND</span>
+                        <span className="text-red-600 font-bold text-lg">{Math.round(Number(finalPrice || 0)).toLocaleString('vi-VN')} VND</span>
                     </div>
 
                     {/* Stock Status */}

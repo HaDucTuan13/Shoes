@@ -22,9 +22,15 @@ class ProductService {
         status,
         variants,
     ) {
+        const categoryArray = Array.isArray(category)
+            ? category
+            : category
+            ? [category]
+            : [];
+
         const product = await modelProduct.create({
             name,
-            category,
+            category: categoryArray,
             price,
             discount,
             description,
@@ -40,7 +46,10 @@ class ProductService {
     }
 
     async getAllProduct() {
-        const product = await modelProduct.find().populate('category');
+        const product = await modelProduct.find().populate({
+            path: 'category',
+            populate: { path: 'parent', select: 'categoryName' },
+        });
         return product;
     }
 
@@ -59,12 +68,18 @@ class ProductService {
         status,
         variants,
     ) {
+        const categoryArray = Array.isArray(category)
+            ? category
+            : category
+            ? [category]
+            : [];
+
         const product = await modelProduct
             .findByIdAndUpdate(
                 id,
                 {
                     name,
-                    category,
+                    category: categoryArray,
                     price,
                     discount,
                     description,
@@ -78,7 +93,10 @@ class ProductService {
                 },
                 { new: true },
             )
-            .populate('category');
+            .populate({
+                path: 'category',
+                populate: { path: 'parent', select: 'categoryName' },
+            });
         return product;
     }
 
@@ -88,13 +106,31 @@ class ProductService {
     }
 
     async getProductByCategory(category) {
-        const products = await modelProduct.find({ category });
+        // If category is a parent, query all products in parent and its subcategories
+        const subCategories = await modelCategory.find({ parent: category });
+        let query = {};
+        if (subCategories && subCategories.length > 0) {
+            const categoryIds = [category, ...subCategories.map((c) => c._id)];
+            query = { category: { $in: categoryIds }, status: 'active' };
+        } else {
+            query = { category, status: 'active' };
+        }
 
+        const products = await modelProduct.find(query).populate({
+            path: 'category',
+            populate: { path: 'parent', select: 'categoryName' },
+        });
+
+        const now = new Date();
         const updatedProducts = await Promise.all(
             products.map(async (product) => {
                 const productObj = product.toObject();
 
-                const findFlashSale = await modelFlashSale.findOne({ productId: productObj._id });
+                const findFlashSale = await modelFlashSale.findOne({
+                    productId: productObj._id,
+                    startDate: { $lte: now },
+                    endDate: { $gte: now },
+                });
                 if (findFlashSale) {
                     productObj.discount = findFlashSale.discount;
                 }
@@ -107,25 +143,54 @@ class ProductService {
     }
 
     async getProductById(id) {
-        const product = await modelProduct.findById(id);
-        const findFlashSale = await modelFlashSale.findOne({ productId: id });
+        const product = await modelProduct.findById(id).populate({
+            path: 'category',
+            populate: { path: 'parent', select: 'categoryName' },
+        });
+        if (!product) return null;
+
+        const productObj = product.toObject();
+
+        // Kiểm tra Flash Sale còn hiệu lực
+        const now = new Date();
+        const findFlashSale = await modelFlashSale.findOne({
+            productId: id,
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+        });
         if (findFlashSale) {
-            product.discount = findFlashSale.discount;
+            productObj.discount = findFlashSale.discount;
         }
 
-        const findProductRelated = (await modelProduct.find({ category: product.category })).filter(
-            (item) => item._id.toString() !== id.toString(),
-        );
+        // Lấy danh sách category IDs của sản phẩm
+        const categoryIds = Array.isArray(product.category)
+            ? product.category.map((c) => c._id || c)
+            : product.category
+            ? [product.category._id || product.category]
+            : [];
 
-        if (findProductRelated) {
-            product.productRelated = findProductRelated;
+        // Tìm các sản phẩm liên quan có cùng danh mục (loại trừ chính nó)
+        let findProductRelated = [];
+        if (categoryIds.length > 0) {
+            findProductRelated = await modelProduct
+                .find({
+                    _id: { $ne: id },
+                    category: { $in: categoryIds },
+                    status: 'active',
+                })
+                .limit(8)
+                .lean();
         }
-        const findPreviewProduct = await modelPreviewProduct.find({ productId: id }).populate('userId');
 
-        if (findPreviewProduct) {
-            product.previewProduct = findPreviewProduct;
-        }
-        return product;
+        productObj.productRelated = findProductRelated;
+
+        const findPreviewProduct = await modelPreviewProduct
+            .find({ productId: id })
+            .populate('userId', 'fullName avatar')
+            .lean();
+
+        productObj.previewProduct = findPreviewProduct || [];
+        return productObj;
     }
     
     async searchProduct(query) {
@@ -176,7 +241,14 @@ class ProductService {
 
             // Category filter
             if (category && category !== 'all') {
-                matchQuery.category = new mongoose.Types.ObjectId(category);
+                const categoryObjId = new mongoose.Types.ObjectId(category);
+                const subCategories = await modelCategory.find({ parent: categoryObjId });
+                if (subCategories && subCategories.length > 0) {
+                    const categoryIds = [categoryObjId, ...subCategories.map((c) => c._id)];
+                    matchQuery.category = { $in: categoryIds };
+                } else {
+                    matchQuery.category = categoryObjId;
+                }
             }
 
             // Size filter
@@ -226,12 +298,6 @@ class ProductService {
                     as: 'category',
                 },
             });
-            pipeline.push({
-                $unwind: {
-                    path: '$category',
-                    preserveNullAndEmptyArrays: true,
-                },
-            });
 
             // Build sort stage
             let sortStage = {};
@@ -275,7 +341,7 @@ class ProductService {
             const totalPages = Math.ceil(totalProducts / parseInt(limit));
 
             // Get filter options for UI
-            const categories = await modelCategory.find();
+            const categories = await modelCategory.find().populate('parent', 'categoryName').lean();
 
             // Get unique sizes and colors for filters
             const allProducts = await modelProduct.find({ status: 'active' });

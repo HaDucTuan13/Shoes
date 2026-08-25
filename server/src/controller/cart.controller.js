@@ -35,6 +35,12 @@ class CartController {
         new OK({ message: 'success', metadata: cart }).send(res);
     }
 
+    async removeCoupon(req, res) {
+        const { id } = req.user;
+        const cart = await CartService.removeCoupon(id);
+        new OK({ message: 'success', metadata: cart }).send(res);
+    }
+
     async updateInfoCart(req, res) {
         const { id } = req.user;
         const { fullName, phone, address } = req.body;

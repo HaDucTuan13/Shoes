@@ -39,20 +39,21 @@ function Checkout() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const calculateSubtotal = () => {
-        return cartData.reduce((sum, item) => sum + item.subtotal, 0);
+        return cartData.reduce((sum, item) => sum + Math.round(Number(item.subtotal || 0)), 0);
     };
 
     const calculateCouponDiscount = () => {
         const appliedCoupon = cartData.find((item) => item.coupon);
-        return appliedCoupon ? appliedCoupon.coupon.discountAmount : 0;
+        return appliedCoupon ? Math.round(Number(appliedCoupon.coupon.discountAmount || 0)) : 0;
     };
 
     const calculateTotal = () => {
-        return calculateSubtotal() - calculateCouponDiscount();
+        return Math.max(0, calculateSubtotal() - calculateCouponDiscount());
     };
 
     const handleInputChange = (e) => {

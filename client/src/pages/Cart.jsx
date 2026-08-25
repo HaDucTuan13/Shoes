@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
-import { requestApplyCoupon, requestRemoveItemFromCart, requestUpdateCartQuantity } from '../config/CartRequest';
+import {
+    requestApplyCoupon,
+    requestRemoveCoupon,
+    requestRemoveItemFromCart,
+    requestUpdateCartQuantity,
+} from '../config/CartRequest';
 import { Minus, Plus, Trash2, ShoppingBag, CreditCard, Truck, Shield, Tag, X } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 import { toast } from 'react-toastify';
@@ -13,18 +18,54 @@ function Cart() {
     const [couponCode, setCouponCode] = useState('');
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
+    // Đồng bộ coupon đã áp dụng từ giỏ hàng nếu có
+    useEffect(() => {
+        if (cartData && cartData.length > 0) {
+            const firstWithCoupon = cartData.find((item) => item.coupon && item.coupon.code);
+            if (firstWithCoupon && !selectedCoupon) {
+                const matchedCoupon = couponData?.find((c) => c.nameCoupon === firstWithCoupon.coupon.code);
+                if (matchedCoupon) {
+                    setSelectedCoupon(matchedCoupon);
+                } else {
+                    setSelectedCoupon({
+                        nameCoupon: firstWithCoupon.coupon.code,
+                        discount: firstWithCoupon.coupon.discount,
+                        discountAmount: firstWithCoupon.coupon.discountAmount,
+                    });
+                }
+            } else if (!firstWithCoupon && selectedCoupon) {
+                setSelectedCoupon(null);
+            }
+        }
+    }, [cartData, couponData]);
+
+    // Tự động hủy coupon trên giao diện nếu tổng tiền giảm xuống dưới mức tối thiểu
+    useEffect(() => {
+        if (selectedCoupon && selectedCoupon.minPrice && cartData && cartData.length > 0) {
+            const subtotal = calculateTotalPrice(cartData);
+            if (subtotal < selectedCoupon.minPrice) {
+                const couponName = selectedCoupon.nameCoupon;
+                const minPrice = selectedCoupon.minPrice;
+                setSelectedCoupon(null);
+                toast.warning(`Mã ${couponName} đã tự động hủy do đơn hàng chưa đạt mức tối thiểu ${formatPrice(minPrice)}`);
+            }
+        }
+    }, [cartData, selectedCoupon]);
+
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const calculateDiscountPrice = (originalPrice, discount) => {
-        return originalPrice - (originalPrice * discount) / 100;
+        return Math.round(Number(originalPrice || 0) * (1 - Number(discount || 0) / 100));
     };
 
     const calculateTotalPrice = (products) => {
+        if (!products || !Array.isArray(products)) return 0;
         return products.reduce((sum, product) => {
             const discountedPrice = calculateDiscountPrice(product.price, product.discount);
             return sum + discountedPrice * product.quantity;
@@ -33,46 +74,54 @@ function Cart() {
 
     const calculateCouponDiscount = (totalPrice, coupon) => {
         if (!coupon) return 0;
-        return (totalPrice * coupon.discount) / 100;
+        return Math.round((Number(totalPrice || 0) * Number(coupon.discount || 0)) / 100);
     };
 
     const calculateFinalTotal = (products, coupon) => {
         const subtotal = calculateTotalPrice(products);
         const couponDiscount = calculateCouponDiscount(subtotal, coupon);
-        return subtotal - couponDiscount;
+        return Math.max(0, subtotal - couponDiscount);
     };
 
     const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-        toast.error('Vui lòng nhập mã giảm giá');
-        return;
-    }
-    setIsApplyingCoupon(true);
-    try {
-        await requestApplyCoupon({ couponCode: couponCode.trim() });
-        const coupon = couponData?.find((c) => c.nameCoupon === couponCode.trim());
-        if (!coupon) {
-            toast.error('Mã giảm giá không hợp lệ');
+        if (!couponCode.trim()) {
+            toast.error('Vui lòng nhập mã giảm giá');
             return;
         }
-        const subtotal = calculateTotalPrice(cartData);
-        if (subtotal < coupon.minPrice) {
-            toast.error(`Đơn hàng tối thiểu ${formatPrice(coupon.minPrice)} để sử dụng mã này`);
-            return;
+        setIsApplyingCoupon(true);
+        try {
+            await requestApplyCoupon({ couponCode: couponCode.trim() });
+            const coupon = couponData?.find((c) => c.nameCoupon === couponCode.trim());
+            if (!coupon) {
+                toast.error('Mã giảm giá không hợp lệ');
+                return;
+            }
+            const subtotal = calculateTotalPrice(cartData);
+            if (subtotal < coupon.minPrice) {
+                toast.error(`Đơn hàng tối thiểu ${formatPrice(coupon.minPrice)} để sử dụng mã này`);
+                return;
+            }
+            setSelectedCoupon(coupon);
+            toast.success(`Áp dụng mã giảm giá ${coupon.nameCoupon} thành công!`);
+            fetchCart();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+        } finally {
+            setIsApplyingCoupon(false);
         }
-        setSelectedCoupon(coupon);
-        toast.success(`Áp dụng mã giảm giá ${coupon.nameCoupon} thành công!`);
-    } catch (error) {
-        toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
-    } finally {
-        setIsApplyingCoupon(false);
-    }
-};
+    };
 
-    const handleRemoveCoupon = () => {
-        setSelectedCoupon(null);
-        setCouponCode('');
-        toast.info('Đã xóa mã giảm giá');
+    const handleRemoveCoupon = async () => {
+        try {
+            await requestRemoveCoupon();
+            setSelectedCoupon(null);
+            setCouponCode('');
+            toast.info('Đã xóa mã giảm giá');
+            fetchCart();
+        } catch (error) {
+            setSelectedCoupon(null);
+            setCouponCode('');
+        }
     };
 
     const handleQuantityChange = async (index, change) => {
@@ -86,7 +135,7 @@ function Cart() {
             await requestUpdateCartQuantity(data);
             fetchCart();
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Lỗi cập nhật số lượng');
         }
     };
 
@@ -100,7 +149,7 @@ function Cart() {
             await requestRemoveItemFromCart(data);
             fetchCart();
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || 'Lỗi khi xóa sản phẩm');
         }
     };
 

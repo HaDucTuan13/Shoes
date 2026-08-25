@@ -185,7 +185,7 @@ class UserService {
     }
 
     async chatbot(question, userId) {
-        const response = await askShoeAssistant(question);
+        const response = await askShoeAssistant(question, userId);
         await modelMessageChatbot.create({ userId, sender: 'user', content: question });
         await modelMessageChatbot.create({ userId, sender: 'bot', content: response });
         return response;
@@ -432,6 +432,142 @@ class UserService {
             // 10. Liên hệ chờ xử lý
             const pendingContacts = await Contact.countDocuments({ status: 'pending' });
 
+            // 11. Thống kê theo loại sản phẩm / danh mục & Cảnh báo nhập hàng
+            const allCategories = await Category.find().lean();
+            const allProducts = await Product.find().lean();
+
+            // Tính tổng số lượng bán & doanh thu cho từng sản phẩm
+            const productSalesAgg = await Payment.aggregate([
+                { $match: { status: { $ne: 'cancelled' } } },
+                { $unwind: '$products' },
+                {
+                    $group: {
+                        _id: '$products.productId',
+                        totalSold: { $sum: '$products.quantity' },
+                        revenue: {
+                            $sum: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ['$products.price', null] }, { $gt: ['$products.price', 0] }] },
+                                    then: { $multiply: ['$products.quantity', '$products.price'] },
+                                    else: 0,
+                                },
+                            },
+                        },
+                    },
+                },
+            ]);
+
+            const productSalesMap = {};
+            productSalesAgg.forEach((item) => {
+                if (item._id) {
+                    productSalesMap[String(item._id)] = {
+                        totalSold: item.totalSold || 0,
+                        revenue: item.revenue || 0,
+                    };
+                }
+            });
+
+            // Map từng sản phẩm kèm tồn kho và số lượng bán
+            const productsWithStats = allProducts.map((p) => {
+                const pId = String(p._id);
+                const sales = productSalesMap[pId] || { totalSold: 0, revenue: 0 };
+                const stock = (p.variants || []).reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+                let estimatedRevenue = sales.revenue;
+                if (estimatedRevenue === 0 && sales.totalSold > 0) {
+                    const price = p.price || 0;
+                    const discount = p.discount || 0;
+                    const discountedPrice = price * (1 - discount / 100);
+                    estimatedRevenue = sales.totalSold * discountedPrice;
+                }
+
+                return {
+                    ...p,
+                    stock,
+                    totalSold: sales.totalSold,
+                    revenue: estimatedRevenue,
+                };
+            });
+
+            // Thống kê cho từng danh mục
+            const categoryStats = allCategories.map((cat) => {
+                const catIdStr = String(cat._id);
+                const isParent = !cat.parent;
+                
+                const childIds = allCategories
+                    .filter((c) => c.parent && String(c.parent) === catIdStr)
+                    .map((c) => String(c._id));
+                const allMatchingCatIds = isParent ? [catIdStr, ...childIds] : [catIdStr];
+
+                const matchedProducts = productsWithStats.filter((p) => {
+                    const prodCats = Array.isArray(p.category)
+                        ? p.category.map((c) => String(c?._id || c))
+                        : p.category
+                        ? [String(p.category?._id || p.category)]
+                        : [];
+                    return prodCats.some((cId) => allMatchingCatIds.includes(cId));
+                });
+
+                const totalSold = matchedProducts.reduce((sum, p) => sum + p.totalSold, 0);
+                const revenue = matchedProducts.reduce((sum, p) => sum + p.revenue, 0);
+                const currentStock = matchedProducts.reduce((sum, p) => sum + p.stock, 0);
+                const productCount = matchedProducts.length;
+
+                let parentCategoryName = null;
+                if (!isParent) {
+                    const parentCat = allCategories.find((c) => String(c._id) === String(cat.parent));
+                    parentCategoryName = parentCat ? parentCat.categoryName : null;
+                }
+
+                return {
+                    id: cat._id,
+                    categoryName: cat.categoryName,
+                    isParent,
+                    parentName: parentCategoryName,
+                    totalSold,
+                    revenue,
+                    currentStock,
+                    productCount,
+                };
+            });
+
+            // Sắp xếp danh mục theo doanh thu giảm dần
+            categoryStats.sort((a, b) => b.revenue - a.revenue || b.totalSold - a.totalSold);
+
+            // Gợi ý nhập hàng: Lọc các sản phẩm bán chạy có tồn kho thấp hoặc hết hàng
+            const restockSuggestions = productsWithStats
+                .filter((p) => p.stock <= 15 || p.totalSold >= 1)
+                .map((p) => {
+                    let urgency = 'safe';
+                    let urgencyText = 'Tồn kho ổn định';
+                    if (p.stock === 0) {
+                        urgency = 'critical';
+                        urgencyText = '🚨 Hết hàng - Cần nhập gấp';
+                    } else if (p.stock <= 5) {
+                        urgency = 'warning';
+                        urgencyText = '⚠️ Sắp hết hàng (< 5)';
+                    } else if (p.stock <= 15 && p.totalSold > 0) {
+                        urgency = 'notice';
+                        urgencyText = '📦 Bán chạy - Nên bổ sung kho';
+                    }
+
+                    return {
+                        id: p._id,
+                        name: p.name,
+                        image: p.colors?.[0]?.images,
+                        price: p.price,
+                        totalSold: p.totalSold,
+                        revenue: p.revenue,
+                        stock: p.stock,
+                        urgency,
+                        urgencyText,
+                    };
+                })
+                .sort((a, b) => {
+                    const urgencyScore = { critical: 3, warning: 2, notice: 1, safe: 0 };
+                    return urgencyScore[b.urgency] - urgencyScore[a.urgency] || b.totalSold - a.totalSold || a.stock - b.stock;
+                })
+                .slice(0, 10);
+
             return {
                 overview: {
                     totalProducts,
@@ -459,6 +595,8 @@ class UserService {
                     revenue: item.revenue,
                     image: item.productColors?.[0]?.images,
                 })),
+                categoryStats,
+                restockSuggestions,
                 recentReviews: recentReviews.map((review) => ({
                     id: review._id,
                     user: review.userId?.fullName || 'Ẩn danh',

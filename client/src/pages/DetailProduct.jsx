@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import { useEffect, useState } from 'react';
@@ -79,11 +79,12 @@ export default function DetailProduct() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const calculateDiscountPrice = (originalPrice, discount) => {
-        return originalPrice - (originalPrice * discount) / 100;
+        return Math.round(Number(originalPrice || 0) * (1 - Number(discount || 0) / 100));
     };
 
     const formatDate = (dateString) => {
@@ -477,6 +478,29 @@ export default function DetailProduct() {
                         )}
                     </div>
                 </div>
+
+                {/* Sản phẩm liên quan */}
+                {productRelated && productRelated.length > 0 && (
+                    <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 tracking-wide">SẢN PHẨM LIÊN QUAN</h2>
+                                <p className="text-xs text-gray-500 mt-1">Các mẫu giày cùng loại có thể bạn quan tâm</p>
+                            </div>
+                            <Link
+                                to="/category"
+                                className="text-xs font-semibold text-gray-700 hover:text-black transition-colors"
+                            >
+                                Xem tất cả &rarr;
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {productRelated.map((item) => (
+                                <CardBody key={item._id} product={item} />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </main>
 
             {/* ================= MODAL HIỂN THỊ HÌNH ẢNG BẢNG SIZE ================= */}

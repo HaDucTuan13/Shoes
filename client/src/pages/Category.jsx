@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import CardBody from '../components/CardBody';
 import { requestFilterProduct } from '../config/ProductRequest';
 import { requestGetAllCategory } from '../config/CategoryRequest';
-import { Filter, Grid, List, SlidersHorizontal, ChevronDown, X, Package, Loader2, Star, Heart } from 'lucide-react';
+import { Filter, Grid, List, SlidersHorizontal, ChevronDown, ChevronRight, X, Package, Loader2, Star, Heart } from 'lucide-react';
 
 function Category() {
     const location = useLocation();
@@ -15,6 +15,7 @@ function Category() {
     // States
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [expandedCategories, setExpandedCategories] = useState({});
     const [loading, setLoading] = useState(true);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -73,7 +74,17 @@ function Category() {
             try {
                 const response = await requestGetAllCategory();
                 if (response.statusCode === 200) {
-                    setCategories(response.metadata);
+                    const fetchedCategories = response.metadata || [];
+                    setCategories(fetchedCategories);
+
+                    // Expand all root categories by default
+                    const initialExpanded = {};
+                    fetchedCategories.forEach((c) => {
+                        if (!c.parent) {
+                            initialExpanded[c._id] = true;
+                        }
+                    });
+                    setExpandedCategories(initialExpanded);
                 }
             } catch (error) {
                 console.error('Error fetching categories:', error);
@@ -81,6 +92,18 @@ function Category() {
         };
         fetchCategories();
     }, []);
+
+    // Sync with URL query parameter changes
+    useEffect(() => {
+        const catParam = searchParams.get('category') || 'all';
+        if (catParam !== filters.category) {
+            setFilters((prev) => ({
+                ...prev,
+                category: catParam,
+                page: 1,
+            }));
+        }
+    }, [searchParams]);
 
     // Fetch products when filters change
     useEffect(() => {
@@ -123,6 +146,14 @@ function Category() {
         }));
     };
 
+    const toggleCategoryExpand = (catId, e) => {
+        if (e) e.stopPropagation();
+        setExpandedCategories((prev) => ({
+            ...prev,
+            [catId]: !prev[catId],
+        }));
+    };
+
     const handlePriceRangeChange = (range) => {
         setFilters((prev) => ({
             ...prev,
@@ -157,8 +188,8 @@ function Category() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-            minimumFractionDigits: 0,
-        }).format(price);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(price || 0)));
     };
 
     const getActiveFiltersCount = () => {
@@ -170,11 +201,132 @@ function Category() {
         return count;
     };
 
-    const getCurrentCategoryName = () => {
-        if (filters.category === 'all') return 'Tất cả sản phẩm';
-        const category = categories.find((cat) => cat._id === filters.category);
-        return category ? category.categoryName : 'Danh mục';
+    // Category hierarchy helpers
+    const rootCategories = categories.filter((c) => !c.parent);
+    const getChildCategories = (parentId) =>
+        categories.filter(
+            (c) => c.parent && ((c.parent._id && c.parent._id === parentId) || c.parent === parentId),
+        );
+
+    const getCurrentBreadcrumbs = () => {
+        if (filters.category === 'all' || !filters.category) {
+            return [{ label: 'Tất cả sản phẩm', id: 'all' }];
+        }
+        const current = categories.find((c) => c._id === filters.category);
+        if (!current) return [{ label: 'Tất cả sản phẩm', id: 'all' }];
+
+        if (current.parent) {
+            const parentId = current.parent._id || current.parent;
+            const parentCat = categories.find((c) => c._id === parentId);
+            return [
+                { label: parentCat ? parentCat.categoryName : 'Danh mục cha', id: parentId },
+                { label: current.categoryName, id: current._id },
+            ];
+        }
+
+        return [{ label: current.categoryName, id: current._id }];
     };
+
+    const getCurrentCategoryName = () => {
+        const bcs = getCurrentBreadcrumbs();
+        return bcs[bcs.length - 1]?.label || 'Tất cả sản phẩm';
+    };
+
+    // Render category tree component
+    const renderCategoryTreeFilter = () => (
+        <div className="space-y-1">
+            {/* Tất cả sản phẩm */}
+            <div
+                onClick={() => handleFilterChange('category', 'all')}
+                className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                    filters.category === 'all'
+                        ? 'bg-gray-100 text-black font-bold'
+                        : 'text-gray-800 hover:bg-gray-50 hover:text-black'
+                }`}
+            >
+                <div className="flex items-center space-x-2">
+                    <input
+                        type="radio"
+                        name="categoryFilter"
+                        checked={filters.category === 'all'}
+                        onChange={() => {}}
+                        className="w-4 h-4 text-black accent-black border-gray-300 focus:ring-black pointer-events-none"
+                    />
+                    <span className="text-sm font-medium">Tất cả sản phẩm</span>
+                </div>
+            </div>
+
+            {/* Các danh mục cha và con */}
+            {rootCategories.map((parentCat) => {
+                const children = getChildCategories(parentCat._id);
+                const hasChildren = children.length > 0;
+                const isExpanded = !!expandedCategories[parentCat._id];
+                const isParentSelected = filters.category === parentCat._id;
+                const isChildSelected = children.some((child) => child._id === filters.category);
+
+                return (
+                    <div key={parentCat._id} className="border-b border-gray-100 last:border-b-0 py-1">
+                        <div
+                            className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                                isParentSelected
+                                    ? 'bg-gray-100 text-black font-bold'
+                                    : isChildSelected
+                                    ? 'font-semibold text-black'
+                                    : 'text-gray-800 hover:bg-gray-50 hover:text-black'
+                            }`}
+                        >
+                            <div
+                                className="flex items-center space-x-2 flex-1 cursor-pointer"
+                                onClick={() => handleFilterChange('category', parentCat._id)}
+                            >
+                                <input
+                                    type="radio"
+                                    name="categoryFilter"
+                                    checked={isParentSelected}
+                                    onChange={() => {}}
+                                    className="w-4 h-4 text-black accent-black border-gray-300 focus:ring-black pointer-events-none"
+                                />
+                                <span className="text-sm font-medium">{parentCat.categoryName}</span>
+                            </div>
+
+                            {hasChildren && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => toggleCategoryExpand(parentCat._id, e)}
+                                    className="p-1 text-gray-500 hover:text-black rounded-md hover:bg-gray-200 transition-colors"
+                                >
+                                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Danh mục con (Cấp 2) */}
+                        {hasChildren && isExpanded && (
+                            <div className="ml-5 pl-2 border-l-2 border-gray-200 space-y-1 py-1 mt-1">
+                                {children.map((child) => {
+                                    const isSelected = filters.category === child._id;
+                                    return (
+                                        <div
+                                            key={child._id}
+                                            onClick={() => handleFilterChange('category', child._id)}
+                                            className={`flex items-center justify-between py-1.5 px-2.5 rounded-md cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? 'bg-[#111827] text-white font-semibold shadow-sm'
+                                                    : 'text-gray-700 hover:text-black hover:bg-gray-100 text-sm'
+                                            }`}
+                                        >
+                                            <span className="text-xs">{child.categoryName}</span>
+                                            {isSelected && <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded">✓</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -187,8 +339,21 @@ function Category() {
                         <span onClick={() => navigate('/')} className="hover:text-red-600 cursor-pointer">
                             Trang chủ
                         </span>
-                        <span>/</span>
-                        <span className="text-gray-900 font-medium">{getCurrentCategoryName()}</span>
+                        {getCurrentBreadcrumbs().map((bc, idx, arr) => (
+                            <React.Fragment key={idx}>
+                                <span>/</span>
+                                {idx === arr.length - 1 ? (
+                                    <span className="text-gray-900 font-bold">{bc.label}</span>
+                                ) : (
+                                    <span
+                                        onClick={() => handleFilterChange('category', bc.id)}
+                                        className="hover:text-red-600 cursor-pointer text-gray-600"
+                                    >
+                                        {bc.label}
+                                    </span>
+                                )}
+                            </React.Fragment>
+                        ))}
                     </nav>
                 </div>
             </div>
@@ -227,35 +392,12 @@ function Category() {
                                 </div>
                             )}
 
-                            {/* Categories Filter */}
+                            {/* Categories Filter (2 Tầng) */}
                             <div className="mb-6">
-                                <h4 className="font-semibold text-gray-900 mb-3">Danh mục</h4>
-                                <div className="space-y-2">
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="category"
-                                            value="all"
-                                            checked={filters.category === 'all'}
-                                            onChange={(e) => handleFilterChange('category', e.target.value)}
-                                            className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
-                                        />
-                                        <span className="ml-2 text-sm text-gray-700">Tất cả</span>
-                                    </label>
-                                    {categories.map((cat) => (
-                                        <label key={cat._id} className="flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="category"
-                                                value={cat._id}
-                                                checked={filters.category === cat._id}
-                                                onChange={(e) => handleFilterChange('category', e.target.value)}
-                                                className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
-                                            />
-                                            <span className="ml-2 text-sm text-gray-700">{cat.categoryName}</span>
-                                        </label>
-                                    ))}
-                                </div>
+                                <h4 className="font-semibold text-gray-900 mb-3 flex items-center justify-between">
+                                    <span>Danh mục sản phẩm</span>
+                                </h4>
+                                {renderCategoryTreeFilter()}
                             </div>
 
                             {/* Price Range Filter */}
@@ -529,35 +671,10 @@ function Category() {
                             </div>
 
                             {/* Same filter content as desktop */}
-                            {/* Categories Filter */}
+                            {/* Categories Filter (2 Tầng) */}
                             <div className="mb-6">
-                                <h4 className="font-semibold text-gray-900 mb-3">Danh mục</h4>
-                                <div className="space-y-2">
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="category"
-                                            value="all"
-                                            checked={filters.category === 'all'}
-                                            onChange={(e) => handleFilterChange('category', e.target.value)}
-                                            className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
-                                        />
-                                        <span className="ml-2 text-sm text-gray-700">Tất cả</span>
-                                    </label>
-                                    {categories.map((cat) => (
-                                        <label key={cat._id} className="flex items-center">
-                                            <input
-                                                type="radio"
-                                                name="category"
-                                                value={cat._id}
-                                                checked={filters.category === cat._id}
-                                                onChange={(e) => handleFilterChange('category', e.target.value)}
-                                                className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
-                                            />
-                                            <span className="ml-2 text-sm text-gray-700">{cat.categoryName}</span>
-                                        </label>
-                                    ))}
-                                </div>
+                                <h4 className="font-semibold text-gray-900 mb-3">Danh mục sản phẩm</h4>
+                                {renderCategoryTreeFilter()}
                             </div>
 
                             {/* Price Range Filter */}

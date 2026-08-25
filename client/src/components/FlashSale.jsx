@@ -49,11 +49,12 @@ function FlashSale() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(amount);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(amount || 0)));
     };
 
     const calculateDiscountPrice = (originalPrice, discount) => {
-        return originalPrice - (originalPrice * discount) / 100;
+        return Math.round(Number(originalPrice || 0) * (1 - Number(discount || 0) / 100));
     };
 
     const sliderSettings = {

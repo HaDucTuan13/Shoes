@@ -7,21 +7,26 @@ const { BadRequestError } = require('../core/error.response');
 class CartService {
     async calculateTotal(cart, productsData) {
         let total = 0;
+        const now = new Date();
         for (const item of cart.products) {
             let discount = 0;
             const product = productsData.find((p) => p._id.toString() === item.productId.toString());
-            const findFlashSale = await modelFlashSale.findOne({ productId: item.productId });
+            const findFlashSale = await modelFlashSale.findOne({
+                productId: item.productId,
+                startDate: { $lte: now },
+                endDate: { $gte: now },
+            });
             if (findFlashSale) {
                 discount = findFlashSale.discount;
             } else {
                 discount = product?.discount || 0;
             }
             if (product) {
-                const priceAfterDiscount = product.price * (1 - discount / 100);
+                const priceAfterDiscount = Math.round(product.price * (1 - discount / 100));
                 total += priceAfterDiscount * item.quantity;
             }
         }
-        return total;
+        return Math.round(total);
     }
 
     async addToCart(userId, productId, quantity, sizeId, colorId) {
@@ -69,45 +74,92 @@ class CartService {
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
+        await this.validateAndUpdateCoupon(cart);
 
         await cart.save(); // Bỏ product.save() vì không đụng stock
 
         return cart;
     }
 
+    async validateAndUpdateCoupon(cart) {
+        if (!cart.coupon || !cart.coupon.code) {
+            cart.finalPrice = Math.round(cart.totalPrice || 0);
+            return;
+        }
+
+        const coupon = await Coupon.findOne({ nameCoupon: cart.coupon.code });
+        const now = new Date();
+
+        // Kiểm tra nếu giỏ hàng rỗng hoặc không đủ minPrice hoặc coupon hết hạn / không tồn tại
+        if (
+            !coupon ||
+            !cart.products ||
+            cart.products.length === 0 ||
+            cart.totalPrice < coupon.minPrice ||
+            now < coupon.startDate ||
+            now > coupon.endDate
+        ) {
+            // Hoàn lại lượt sử dụng cho coupon
+            if (coupon) {
+                coupon.quantity += 1;
+                await coupon.save();
+            }
+            cart.coupon = undefined;
+            cart.finalPrice = Math.round(cart.totalPrice || 0);
+        } else {
+            // Cập nhật lại số tiền giảm giá và giá cuối theo totalPrice mới
+            const discountAmount = Math.round((cart.totalPrice * coupon.discount) / 100);
+            cart.coupon.discount = coupon.discount;
+            cart.coupon.discountAmount = discountAmount;
+            cart.finalPrice = Math.max(0, cart.totalPrice - discountAmount);
+        }
+    }
+
     async getCart(userId) {
-        const cart = await Cart.findOne({ userId })
+        let cart = await Cart.findOne({ userId });
+        if (!cart) return { items: [], coupon: [], appliedCoupon: null, totalPrice: 0, finalPrice: 0 };
+
+        const allProductIds = cart.products.map((p) => p.productId);
+        const productsData = await Product.find({ _id: { $in: allProductIds } });
+        cart.totalPrice = await this.calculateTotal(cart, productsData);
+        await this.validateAndUpdateCoupon(cart);
+        await cart.save();
+
+        const populatedCart = await Cart.findOne({ userId })
             .populate({
                 path: 'products.productId',
                 select: 'name price discount colors variants',
             })
             .lean();
 
-        if (!cart) return { items: [], coupon: [] };
-
         const today = new Date();
         const coupon = await Coupon.find({
             startDate: { $lte: today },
             endDate: { $gte: today },
-            minPrice: { $lte: cart.totalPrice },
+            minPrice: { $lte: populatedCart.totalPrice },
             quantity: { $gt: 0 },
         }).lean();
 
         const items = await Promise.all(
-            cart.products.map(async (item) => {
+            populatedCart.products.map(async (item) => {
                 const product = item.productId;
-                const color = product.colors.find((c) => c._id.toString() === item.colorId.toString());
-                const variant = product.variants.find((v) => v._id.toString() === item.sizeId.toString());
+                if (!product) return null;
+                const color = product.colors?.find((c) => c._id.toString() === item.colorId.toString());
+                const variant = product.variants?.find((v) => v._id.toString() === item.sizeId.toString());
 
                 let discount = 0;
-                const findFlashSale = await modelFlashSale.findOne({ productId: item.productId });
+                const findFlashSale = await modelFlashSale.findOne({
+                    productId: item.productId,
+                    startDate: { $lte: today },
+                    endDate: { $gte: today },
+                });
                 if (findFlashSale) {
                     discount = findFlashSale.discount;
                 } else {
                     discount = product?.discount || 0;
                 }
 
-                const priceAfterDiscount = product.price * (1 - discount / 100);
+                const priceAfterDiscount = Math.round(product.price * (1 - discount / 100));
 
                 return {
                     _id: item._id,
@@ -120,12 +172,18 @@ class CartService {
                     size: variant ? variant.size : null,
                     quantity: item.quantity,
                     subtotal: priceAfterDiscount * item.quantity,
-                    coupon: cart.coupon,
+                    coupon: populatedCart.coupon,
                 };
             }),
         );
 
-        return { items, totalPrice: cart.totalPrice, coupon };
+        return {
+            items: items.filter(Boolean),
+            totalPrice: Math.round(populatedCart.totalPrice || 0),
+            finalPrice: Math.round(populatedCart.finalPrice || populatedCart.totalPrice || 0),
+            appliedCoupon: populatedCart.coupon || null,
+            coupon,
+        };
     }
 
     async updateCartQuantity(userId, itemId, newQuantity) {
@@ -147,11 +205,12 @@ class CartService {
         }
 
         cartItem.quantity = newQuantity;
-        await cart.save(); // Bỏ product.save()
+        await cart.save();
 
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
+        await this.validateAndUpdateCoupon(cart);
         await cart.save();
 
         return cart;
@@ -171,6 +230,7 @@ class CartService {
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
+        await this.validateAndUpdateCoupon(cart);
         await cart.save();
 
         return cart;
@@ -204,7 +264,7 @@ class CartService {
             }
         }
 
-        const discountAmount = (cart.totalPrice * newCoupon.discount) / 100;
+        const discountAmount = Math.round((cart.totalPrice * newCoupon.discount) / 100);
         const finalPrice = Math.max(cart.totalPrice - discountAmount, 0);
 
         cart.coupon = {
@@ -219,11 +279,29 @@ class CartService {
 
         return {
             message: `Áp dụng mã ${newCoupon.nameCoupon} thành công!`,
-            totalPrice: cart.totalPrice,
+            totalPrice: Math.round(cart.totalPrice),
             discount: newCoupon.discount,
             discountAmount,
-            finalPrice,
+            finalPrice: Math.round(finalPrice),
         };
+    }
+
+    async removeCoupon(userId) {
+        const cart = await Cart.findOne({ userId });
+        if (!cart) throw new BadRequestError('Giỏ hàng không tồn tại');
+
+        if (cart.coupon && cart.coupon.code) {
+            const oldCoupon = await Coupon.findOne({ nameCoupon: cart.coupon.code });
+            if (oldCoupon) {
+                oldCoupon.quantity += 1;
+                await oldCoupon.save();
+            }
+            cart.coupon = undefined;
+            cart.finalPrice = Math.round(cart.totalPrice || 0);
+            await cart.save();
+        }
+
+        return cart;
     }
 
     async updateInfoCart(userId, fullName, phone, address) {

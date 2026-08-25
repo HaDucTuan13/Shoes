@@ -51,13 +51,18 @@ function ProductManager() {
     const handleEdit = (record) => {
         setEditingProduct(record);
 
-        console.log(record);
+        let categoryValues = [];
+        if (Array.isArray(record.category)) {
+            categoryValues = record.category.map((c) => (typeof c === 'object' ? c._id : c));
+        } else if (record.category) {
+            categoryValues = [typeof record.category === 'object' ? record.category._id : record.category];
+        }
 
         form.setFieldsValue({
             name: record.name,
             price: Number(record.price || 0),
             discount: Number(record.discount || 0),
-            category: record.category._id,
+            category: categoryValues,
             description: record.description || '',
             colors: (record.colors || []).map((c) => ({
                 ...c,
@@ -164,10 +169,46 @@ function ProductManager() {
             ),
         },
         {
+            title: 'Danh mục',
+            dataIndex: 'category',
+            key: 'category',
+            render: (categoryData) => {
+                const catList = Array.isArray(categoryData)
+                    ? categoryData
+                    : categoryData
+                    ? [categoryData]
+                    : [];
+                if (catList.length === 0) return <span className="text-gray-400">-</span>;
+                return (
+                    <div className="flex flex-wrap gap-1 max-w-xs">
+                        {catList.map((cat, idx) => {
+                            if (!cat) return null;
+                            const catName = typeof cat === 'object' ? cat.categoryName : 'Danh mục';
+                            const parentName =
+                                typeof cat === 'object' && cat.parent
+                                    ? typeof cat.parent === 'object'
+                                        ? cat.parent.categoryName
+                                        : ''
+                                    : '';
+                            return (
+                                <span
+                                    key={cat._id || idx}
+                                    className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-100 font-medium inline-block"
+                                >
+                                    {parentName ? `${parentName} > ` : ''}
+                                    {catName}
+                                </span>
+                            );
+                        })}
+                    </div>
+                );
+            },
+        },
+        {
             title: 'Giá',
             dataIndex: 'price',
             key: 'price',
-            render: (p) => `${Number(p || 0).toLocaleString()} VND`,
+            render: (p) => `${Math.round(Number(p || 0)).toLocaleString('vi-VN')} VND`,
         },
         { title: 'Giảm giá', dataIndex: 'discount', key: 'discount', render: (d) => `${Number(d || 0)} %` },
         {
@@ -184,6 +225,13 @@ function ProductManager() {
         },
     ];
 
+    // Group categories hierarchically for Select
+    const rootCategories = dataCategory.filter((c) => !c.parent);
+    const getChildCategories = (parentId) =>
+        dataCategory.filter(
+            (c) => c.parent && (c.parent._id === parentId || c.parent === parentId),
+        );
+
     return (
         <div className="p-6 bg-white rounded-xl shadow-md">
             <div className="flex justify-between items-center mb-4">
@@ -193,7 +241,7 @@ function ProductManager() {
                 </Button>
             </div>
 
-            <Table rowKey="id" columns={columns} dataSource={products} />
+            <Table rowKey="_id" columns={columns} dataSource={products} />
 
             <Modal
                 title={editingProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
@@ -225,13 +273,41 @@ function ProductManager() {
                         <Form.Item name="discount" label="Giảm giá (%)">
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
-                        <Form.Item name="category" label="Danh mục" rules={[{ required: true }]}>
-                            <Select>
-                                {dataCategory.map((c) => (
-                                    <Select.Option key={c._id} value={c._id}>
-                                        {c.categoryName}
-                                    </Select.Option>
-                                ))}
+                        <Form.Item
+                            name="category"
+                            label="Danh mục (Có thể chọn nhiều danh mục)"
+                            rules={[{ required: true, message: 'Vui lòng chọn ít nhất 1 danh mục' }]}
+                        >
+                            <Select
+                                mode="multiple"
+                                placeholder="Chọn các danh mục (VD: Giày Bóng Rổ, Giày Pickleball...)"
+                                showSearch
+                                optionFilterProp="children"
+                                allowClear
+                                className="w-full"
+                            >
+                                {rootCategories.map((parentCat) => {
+                                    const children = getChildCategories(parentCat._id);
+                                    if (children.length > 0) {
+                                        return (
+                                            <Select.OptGroup key={parentCat._id} label={`📁 ${parentCat.categoryName.toUpperCase()}`}>
+                                                <Select.Option value={parentCat._id}>
+                                                    <span className="font-semibold text-gray-800">{parentCat.categoryName} (Chung)</span>
+                                                </Select.Option>
+                                                {children.map((child) => (
+                                                    <Select.Option key={child._id} value={child._id}>
+                                                        &nbsp;&nbsp;↳ {parentCat.categoryName} &gt; {child.categoryName}
+                                                    </Select.Option>
+                                                ))}
+                                            </Select.OptGroup>
+                                        );
+                                    }
+                                    return (
+                                        <Select.Option key={parentCat._id} value={parentCat._id}>
+                                            📁 {parentCat.categoryName}
+                                        </Select.Option>
+                                    );
+                                })}
                             </Select>
                         </Form.Item>
                     </div>

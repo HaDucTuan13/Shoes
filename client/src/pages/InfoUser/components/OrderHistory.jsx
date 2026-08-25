@@ -116,7 +116,8 @@ function OrderHistory() {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-        }).format(amount);
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(amount || 0)));
     };
 
     const formatDate = (dateString) => {

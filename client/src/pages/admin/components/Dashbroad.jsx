@@ -11,6 +11,7 @@ import {
 import {
     TrendingUp, ShoppingCart, Users, Package, DollarSign,
     Star, MessageSquare, Calendar, Award, Activity, RefreshCw,
+    Layers, AlertTriangle, CheckCircle2, Sparkles,
 } from 'lucide-react';
 import moment from 'moment';
 import dayjs from 'dayjs';
@@ -26,6 +27,8 @@ function Dashboard({ onNavigate }) {
         revenueByDay: [],
         orderStatus: [],
         topProducts: [],
+        categoryStats: [],
+        restockSuggestions: [],
         recentReviews: [],
         recentOrders: [],
         paymentMethods: [],
@@ -65,7 +68,11 @@ function Dashboard({ onNavigate }) {
     };
 
     const formatCurrency = (amount) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+        new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+            maximumFractionDigits: 0,
+        }).format(Math.round(Number(amount || 0)));
 
     const getStatusColor = (status) => ({
         pending: 'orange', confirmed: 'blue', shipped: 'cyan',
@@ -381,13 +388,165 @@ function Dashboard({ onNavigate }) {
                 </Col>
             </Row>
 
-            {/* Top sản phẩm và phương thức thanh toán */}
+            {/* Thống kê Doanh thu & Tiêu thụ theo Loại sản phẩm / Danh mục */}
+            <Row gutter={[16, 16]} className="mb-8">
+                <Col xs={24} lg={15}>
+                    <Card
+                        title={
+                            <Space>
+                                <Layers className="text-indigo-500" size={18} />
+                                <Text strong>Doanh Thu & Tồn Kho Theo Loại Sản Phẩm</Text>
+                            </Space>
+                        }
+                        extra={
+                            <Button type="link" size="small" onClick={() => onNavigate('category')}>
+                                Quản lý danh mục →
+                            </Button>
+                        }
+                        className="shadow-sm border-0 h-full"
+                    >
+                        <Table
+                            dataSource={dashboardData.categoryStats || []}
+                            rowKey="id"
+                            size="small"
+                            pagination={{ pageSize: 6, size: 'small' }}
+                            columns={[
+                                {
+                                    title: 'Loại sản phẩm',
+                                    dataIndex: 'categoryName',
+                                    key: 'categoryName',
+                                    render: (name, record) => (
+                                        <div>
+                                            <div className="font-semibold text-gray-900 text-xs">
+                                                {record.parentName ? (
+                                                    <span>
+                                                        <span className="text-gray-400 font-normal">{record.parentName} &gt; </span>
+                                                        {name}
+                                                    </span>
+                                                ) : (
+                                                    name
+                                                )}
+                                            </div>
+                                            <Tag color={record.isParent ? 'purple' : 'blue'} className="text-[10px] mt-0.5">
+                                                {record.isParent ? 'Cấp 1 (Cha)' : 'Cấp 2 (Con)'}
+                                            </Tag>
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    title: 'Đã bán',
+                                    dataIndex: 'totalSold',
+                                    key: 'totalSold',
+                                    sorter: (a, b) => a.totalSold - b.totalSold,
+                                    render: (sold) => (
+                                        <span className="font-bold text-gray-800 text-xs">
+                                            {sold} <span className="text-gray-400 font-normal">đôi</span>
+                                        </span>
+                                    ),
+                                },
+                                {
+                                    title: 'Doanh thu',
+                                    dataIndex: 'revenue',
+                                    key: 'revenue',
+                                    sorter: (a, b) => a.revenue - b.revenue,
+                                    render: (rev) => (
+                                        <span className="font-bold text-blue-600 text-xs">
+                                            {formatCurrency(rev)}
+                                        </span>
+                                    ),
+                                },
+                                {
+                                    title: 'Tồn kho',
+                                    dataIndex: 'currentStock',
+                                    key: 'currentStock',
+                                    sorter: (a, b) => a.currentStock - b.currentStock,
+                                    render: (stock) => {
+                                        let stockColor = 'text-green-600';
+                                        if (stock === 0) stockColor = 'text-red-600 font-bold';
+                                        else if (stock <= 10) stockColor = 'text-orange-500 font-bold';
+                                        return (
+                                            <span className={`text-xs ${stockColor}`}>
+                                                {stock} <span className="text-gray-400 font-normal">đôi</span>
+                                            </span>
+                                        );
+                                    },
+                                },
+                                {
+                                    title: 'Đánh giá / Đề xuất',
+                                    key: 'status',
+                                    render: (_, record) => {
+                                        if (record.totalSold > 0 && record.currentStock === 0) {
+                                            return <Tag color="error" className="text-[10px]">🚨 Hết hàng</Tag>;
+                                        }
+                                        if (record.totalSold > 0 && record.currentStock <= 10) {
+                                            return <Tag color="warning" className="text-[10px]">⚠️ Cần nhập thêm</Tag>;
+                                        }
+                                        if (record.totalSold > 0) {
+                                            return <Tag color="success" className="text-[10px]">🔥 Bán chạy</Tag>;
+                                        }
+                                        return <Tag color="default" className="text-[10px]">📦 Tồn ổn định</Tag>;
+                                    },
+                                },
+                            ]}
+                        />
+                    </Card>
+                </Col>
+
+                <Col xs={24} lg={9}>
+                    <Card
+                        title={
+                            <Space>
+                                <Sparkles className="text-indigo-500" size={18} />
+                                <Text strong>Cơ Cấu Doanh Thu Theo Loại</Text>
+                            </Space>
+                        }
+                        className="shadow-sm border-0 h-full"
+                    >
+                        {(dashboardData.categoryStats || []).some((c) => c.revenue > 0) ? (
+                            <ResponsiveContainer width="100%" height={280}>
+                                <PieChart>
+                                    <Pie
+                                        data={(dashboardData.categoryStats || [])
+                                            .filter((c) => c.revenue > 0)
+                                            .slice(0, 6)}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={45}
+                                        outerRadius={85}
+                                        dataKey="revenue"
+                                        nameKey="categoryName"
+                                        label={({ categoryName, percent }) =>
+                                            percent > 0.08 ? `${categoryName} (${(percent * 100).toFixed(0)}%)` : ''
+                                        }
+                                        labelLine={false}
+                                    >
+                                        {(dashboardData.categoryStats || []).map((_, index) => (
+                                            <Cell key={`cat-cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value, name) => [formatCurrency(value), name]}
+                                        contentStyle={{ backgroundColor: 'white', border: '1px solid #e8e8e8', borderRadius: '8px' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                                <Layers size={40} className="mb-2 opacity-25" />
+                                <Text type="secondary">Chưa có dữ liệu doanh thu danh mục</Text>
+                            </div>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Top sản phẩm bán chạy & Đề xuất nhập hàng */}
             <Row gutter={[16, 16]} className="mb-8">
                 <Col xs={24} lg={12}>
                     <Card
                         title={<Space><Award className="text-yellow-500" size={18} /><Text strong>Top Sản Phẩm Bán Chạy</Text></Space>}
                         extra={<Button type="link" size="small" onClick={() => onNavigate('product')}>Xem tất cả →</Button>}
-                        className="shadow-sm border-0"
+                        className="shadow-sm border-0 h-full"
                     >
                         <div className="space-y-3">
                             {(dashboardData.topProducts || []).map((product, index) => (
@@ -431,7 +590,77 @@ function Dashboard({ onNavigate }) {
                     </Card>
                 </Col>
 
+                {/* Đề xuất nhập hàng thông minh */}
                 <Col xs={24} lg={12}>
+                    <Card
+                        title={
+                            <Space>
+                                <AlertTriangle className="text-orange-500" size={18} />
+                                <Text strong>Đề Xuất Nhập Hàng Thông Minh</Text>
+                            </Space>
+                        }
+                        extra={
+                            <Button type="link" size="small" onClick={() => onNavigate('product')}>
+                                Quản lý kho →
+                            </Button>
+                        }
+                        className="shadow-sm border-0 h-full"
+                    >
+                        <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                            {(dashboardData.restockSuggestions || []).map((item) => {
+                                const tagColor =
+                                    item.urgency === 'critical'
+                                        ? 'error'
+                                        : item.urgency === 'warning'
+                                        ? 'warning'
+                                        : 'processing';
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center justify-between p-2.5 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all"
+                                    >
+                                        <Space size="middle">
+                                            <Avatar
+                                                size={40}
+                                                src={`${import.meta.env.VITE_API_URL}/uploads/products/${item.image}`}
+                                                className="border"
+                                            />
+                                            <div>
+                                                <Text strong className="block text-xs line-clamp-1 max-w-[200px]">
+                                                    {item.name}
+                                                </Text>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[11px] text-gray-500">
+                                                        Đã bán: <b className="text-blue-600">{item.totalSold}</b> đôi
+                                                    </span>
+                                                    <span className="text-[11px] text-gray-500">
+                                                        Tồn kho: <b className={item.stock <= 5 ? 'text-red-600' : 'text-gray-800'}>{item.stock}</b> đôi
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Space>
+                                        <div className="text-right">
+                                            <Tag color={tagColor} className="text-[11px] m-0">
+                                                {item.urgencyText}
+                                            </Tag>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {(!dashboardData.restockSuggestions || dashboardData.restockSuggestions.length === 0) && (
+                                <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                                    <CheckCircle2 size={36} className="text-green-500 mb-2 opacity-80" />
+                                    <Text type="secondary">Tất cả sản phẩm hiện đang có tồn kho an toàn</Text>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Phương thức thanh toán */}
+            <Row gutter={[16, 16]} className="mb-8">
+                <Col xs={24}>
                     <Card
                         title={<Space><DollarSign className="text-blue-500" size={18} /><Text strong>Phương Thức Thanh Toán</Text></Space>}
                         className="shadow-sm border-0"
