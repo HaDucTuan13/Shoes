@@ -106,14 +106,14 @@ function Register() {
                                         message: 'Vui lòng nhập số điện thoại!',
                                     },
                                     {
-                                        type: 'phone',
-                                        message: 'Số điện thoại không hợp lệ!',
+                                        pattern: /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/,
+                                        message: 'Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)!',
                                     },
                                 ]}
                                 className="mb-4"
                             >
                                 <Input
-                                    placeholder="0909090909"
+                                    placeholder="0912345678"
                                     className="h-12 rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                 />
                             </Form.Item>
@@ -177,15 +177,20 @@ function Register() {
                                     </span>
                                 }
                                 name="confirmPassword"
+                                dependencies={['password']}
                                 rules={[
                                     {
                                         required: true,
                                         message: 'Vui lòng nhập xác nhận mật khẩu!',
                                     },
-                                    {
-                                        min: 6,
-                                        message: 'Xác nhận mật khẩu phải có ít nhất 6 ký tự!',
-                                    },
+                                    ({ getFieldValue }) => ({
+                                        validator(_, value) {
+                                            if (!value || getFieldValue('password') === value) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                                        },
+                                    }),
                                 ]}
                                 className="mb-2"
                             >

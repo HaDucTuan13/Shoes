@@ -22,11 +22,19 @@ class UserService {
         if (findUser) {
             throw new ConflictRequestError('Email đã tồn tại');
         }
+
+        const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
+        if (!phone || !phoneRegex.test(phone.trim())) {
+            throw new BadRequestError('Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)');
+        }
+
         const saltRounds = 10;
         const salt = bcrypt.genSaltSync(saltRounds);
         const passwordHash = bcrypt.hashSync(password, salt);
         const newUser = await modelUser.create({
-            fullName, email, phone,
+            fullName,
+            email,
+            phone: phone.trim(),
             password: passwordHash,
             typeLogin: 'email',
         });
@@ -113,9 +121,17 @@ class UserService {
         const { fullName, address, phone, birthDay, email } = data;
         const user = await modelUser.findOne({ _id: id });
         if (!user) throw new BadRequestError('Người dùng không tồn tại');
+
+        if (phone) {
+            const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
+            if (!phoneRegex.test(phone.trim())) {
+                throw new BadRequestError('Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)');
+            }
+            user.phone = phone.trim();
+        }
+
         user.fullName = fullName;
         user.address = address;
-        user.phone = phone;
         user.birthDay = birthDay;
         user.email = email;
         await user.save();

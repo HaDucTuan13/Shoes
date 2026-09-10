@@ -194,10 +194,13 @@ function PersonalInfo() {
                                         label="Số điện thoại"
                                         rules={[
                                             { required: true, message: 'Vui lòng nhập số điện thoại' },
-                                            { pattern: /^[0-9]{10}$/, message: 'Số điện thoại không hợp lệ' },
+                                            {
+                                                pattern: /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/,
+                                                message: 'Số điện thoại không đúng định dạng Việt Nam (10 số, bắt đầu bằng 03, 05, 07, 08, 09)',
+                                            },
                                         ]}
                                     >
-                                        <Input prefix={<PhoneOutlined />} placeholder="Số điện thoại" />
+                                        <Input prefix={<PhoneOutlined />} placeholder="0912345678" />
                                     </Form.Item>
                                 </Col>
                                 <Col span={24} md={12}>
