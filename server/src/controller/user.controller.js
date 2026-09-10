@@ -30,12 +30,12 @@ function setCookie(res, token, refreshToken) {
 
 class UserController {
     async createUser(req, res) {
-        const { fullName, email, password } = req.body;
-        if (!fullName || !email || !password) {
+        const { fullName, email, password, phone } = req.body;
+        if (!fullName || !email || !password || !phone) {
             throw new BadRequestError('Vui lòng nhập đầy đủ thông tin');
         }
 
-        const { token, refreshToken } = await UserService.createUser({ fullName, email, password });
+        const { token, refreshToken } = await UserService.createUser({ fullName, email, password, phone });
 
         setCookie(res, token, refreshToken);
 
