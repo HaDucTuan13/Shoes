@@ -69,9 +69,45 @@ export default function DetailProduct() {
     };
 
     const handleQuantityChange = (change) => {
-        const newQuantity = quantity + change;
-        if (newQuantity >= 1 && newQuantity <= (selectedSize?.stock || 1)) {
+        const current = Number(quantity) || 1;
+        const max = selectedSize?.stock || 1;
+        const newQuantity = current + change;
+        if (newQuantity >= 1 && newQuantity <= max) {
             setQuantity(newQuantity);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const raw = e.target.value;
+        if (raw === '') {
+            setQuantity('');
+            return;
+        }
+        // Chỉ chấp nhận số nguyên dương
+        const cleaned = raw.replace(/\D/g, '');
+        if (cleaned === '') {
+            setQuantity('');
+            return;
+        }
+        const val = parseInt(cleaned, 10);
+        const max = selectedSize?.stock || 1;
+        if (val > max) {
+            setQuantity(max);
+            toast.info(`Trong kho chỉ có sẵn ${max} sản phẩm`);
+        } else if (val < 1) {
+            setQuantity(1);
+        } else {
+            setQuantity(val);
+        }
+    };
+
+    const handleInputBlur = () => {
+        const max = selectedSize?.stock || 1;
+        const val = Number(quantity);
+        if (!val || isNaN(val) || val < 1) {
+            setQuantity(1);
+        } else if (val > max) {
+            setQuantity(max);
         }
     };
 
@@ -148,10 +184,12 @@ export default function DetailProduct() {
             navigate('/login');
             return;
         }
+        const finalQty = Math.max(1, Math.min(Number(quantity) || 1, selectedSize?.stock || 1));
+        setQuantity(finalQty);
         try {
             const data = {
                 productId: product._id,
-                quantity: quantity,
+                quantity: finalQty,
                 size: selectedSize?._id || selectedSize,
                 color: selectedColor?._id || selectedColor,
             };
@@ -169,10 +207,12 @@ export default function DetailProduct() {
             navigate('/login');
             return;
         }
+        const finalQty = Math.max(1, Math.min(Number(quantity) || 1, selectedSize?.stock || 1));
+        setQuantity(finalQty);
         try {
             const data = {
                 productId: product._id,
-                quantity: quantity,
+                quantity: finalQty,
                 size: selectedSize?._id || selectedSize,
                 color: selectedColor?._id || selectedColor,
             };
@@ -347,34 +387,32 @@ export default function DetailProduct() {
                             <div>
                                 <h3 className="text-base font-semibold text-gray-900 mb-3">Số lượng</h3>
                                 <div className="flex items-center space-x-4">
-                                    <div className="flex items-center border border-gray-300 rounded-lg">
+                                    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
                                         <button
+                                            type="button"
                                             onClick={() => handleQuantityChange(-1)}
-                                            disabled={quantity <= 1}
-                                            className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={Number(quantity) <= 1}
+                                            className="px-3 py-2 text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
-                                            <Minus className="w-3 h-3" />
+                                            <Minus className="w-3.5 h-3.5" />
                                         </button>
                                         <input
-                                            type="number"
-                                            min={1}
-                                            max={selectedSize?.stock || 1}
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             value={quantity}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                const max = selectedSize?.stock || 1;
-                                                if (!isNaN(val) && val >= 1 && val <= max) {
-                                                    setQuantity(val);
-                                                }
-                                            }}
-                                            className="w-12 text-center py-2 text-sm font-medium border-x border-gray-300 focus:outline-none"
+                                            onChange={handleInputChange}
+                                            onBlur={handleInputBlur}
+                                            onFocus={(e) => e.target.select()}
+                                            className="w-14 text-center py-2 text-sm font-semibold text-gray-800 border-x border-gray-300 focus:outline-none focus:bg-gray-50 transition-colors"
                                         />
                                         <button
+                                            type="button"
                                             onClick={() => handleQuantityChange(1)}
-                                            disabled={quantity >= (selectedSize?.stock || 1)}
-                                            className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={Number(quantity) >= (selectedSize?.stock || 1)}
+                                            className="px-3 py-2 text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
-                                            <Plus className="w-3 h-3" />
+                                            <Plus className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
                                     <span className="text-xs text-gray-600">
