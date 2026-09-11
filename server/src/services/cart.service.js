@@ -31,53 +31,70 @@ class CartService {
 
     async addToCart(userId, productId, quantity, sizeId, colorId) {
         if (!userId || !productId || !colorId || !sizeId) {
-            throw new Error('Thiếu dữ liệu cần thiết');
+            throw new BadRequestError('Thiếu dữ liệu cần thiết');
         }
 
-        const product = await Product.findById(productId);
-        if (!product) throw new Error('Không tìm thấy sản phẩm');
+        const realProductId = String(productId?._id || productId);
+        const realSizeId = String(sizeId?._id || sizeId);
+        const realColorId = String(colorId?._id || colorId);
+        const addQty = Math.max(1, Number(quantity) || 1);
 
-        const variant = product.variants.id(sizeId);
-        if (!variant) throw new Error('Không tìm thấy size sản phẩm');
+        const product = await Product.findById(realProductId);
+        if (!product) throw new BadRequestError('Không tìm thấy sản phẩm');
 
-        // Chỉ kiểm tra stock, không trừ
-        if (variant.stock < quantity) throw new Error('Số lượng trong kho không đủ');
+        const variant = product.variants.id(realSizeId);
+        if (!variant) throw new BadRequestError('Không tìm thấy size sản phẩm');
+
+        if (variant.stock <= 0) {
+            throw new BadRequestError('Sản phẩm size này hiện đã hết hàng trong kho');
+        }
 
         let cart = await Cart.findOne({ userId });
 
         if (!cart) {
+            if (addQty > variant.stock) {
+                throw new BadRequestError(`Số lượng trong kho chỉ còn tối đa ${variant.stock} sản phẩm`);
+            }
             cart = new Cart({
                 userId,
-                products: [{ productId, colorId, sizeId, quantity }],
+                products: [{ productId: realProductId, colorId: realColorId, sizeId: realSizeId, quantity: addQty }],
                 totalPrice: 0,
             });
         } else {
             const existingItem = cart.products.find(
                 (item) =>
-                    item.productId.toString() === productId &&
-                    item.colorId.toString() === colorId.toString() &&
-                    item.sizeId.toString() === sizeId.toString(),
+                    String(item.productId) === realProductId &&
+                    String(item.colorId) === realColorId &&
+                    String(item.sizeId) === realSizeId,
             );
 
             if (existingItem) {
-                // Kiểm tra tổng số lượng sau khi cộng thêm có vượt stock không
-                if (variant.stock < existingItem.quantity + quantity) {
-                    throw new Error('Số lượng trong kho không đủ để thêm');
+                if (existingItem.quantity + addQty > variant.stock) {
+                    throw new BadRequestError(
+                        `Bạn đã có ${existingItem.quantity} sản phẩm trong giỏ hàng. Trong kho chỉ còn ${variant.stock} sản phẩm (bạn chỉ có thể thêm tối đa ${Math.max(0, variant.stock - existingItem.quantity)} sản phẩm nữa).`
+                    );
                 }
-                existingItem.quantity += quantity;
+                existingItem.quantity += addQty;
             } else {
-                cart.products.push({ productId, colorId, sizeId, quantity });
+                const totalExistingInCart = cart.products
+                    .filter((item) => String(item.productId) === realProductId && String(item.sizeId) === realSizeId)
+                    .reduce((sum, item) => sum + item.quantity, 0);
+
+                if (totalExistingInCart + addQty > variant.stock) {
+                    throw new BadRequestError(
+                        `Tổng số lượng size này trong giỏ hàng vượt quá tồn kho (${variant.stock} sản phẩm)`
+                    );
+                }
+                cart.products.push({ productId: realProductId, colorId: realColorId, sizeId: realSizeId, quantity: addQty });
             }
         }
 
-        // Không trừ stock ở đây nữa
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
         cart.totalPrice = await this.calculateTotal(cart, productsData);
         await this.validateAndUpdateCoupon(cart);
 
-        await cart.save(); // Bỏ product.save() vì không đụng stock
-
+        await cart.save();
         return cart;
     }
 
@@ -121,6 +138,38 @@ class CartService {
 
         const allProductIds = cart.products.map((p) => p.productId);
         const productsData = await Product.find({ _id: { $in: allProductIds } });
+
+        // Tự động gộp các dòng trùng lặp (cùng productId, colorId, sizeId)
+        const mergedMap = new Map();
+        for (const item of cart.products) {
+            const key = `${String(item.productId)}_${String(item.colorId)}_${String(item.sizeId)}`;
+            if (mergedMap.has(key)) {
+                mergedMap.get(key).quantity += item.quantity;
+            } else {
+                mergedMap.set(key, {
+                    _id: item._id,
+                    productId: item.productId,
+                    colorId: item.colorId,
+                    sizeId: item.sizeId,
+                    quantity: item.quantity,
+                });
+            }
+        }
+
+        const cleanedProducts = Array.from(mergedMap.values()).map((item) => {
+            const product = productsData.find((p) => String(p._id) === String(item.productId));
+            const variant = product?.variants?.find((v) => String(v._id) === String(item.sizeId));
+            const maxStock = variant ? variant.stock : item.quantity;
+            return {
+                _id: item._id,
+                productId: item.productId,
+                colorId: item.colorId,
+                sizeId: item.sizeId,
+                quantity: Math.min(item.quantity, Math.max(1, maxStock)),
+            };
+        });
+
+        cart.products = cleanedProducts;
         cart.totalPrice = await this.calculateTotal(cart, productsData);
         await this.validateAndUpdateCoupon(cart);
         await cart.save();
@@ -163,6 +212,9 @@ class CartService {
 
                 return {
                     _id: item._id,
+                    productId: product._id,
+                    colorId: item.colorId,
+                    sizeId: item.sizeId,
                     name: product.name,
                     price: product.price,
                     discount,
@@ -171,6 +223,7 @@ class CartService {
                     image: color ? color.images : null,
                     size: variant ? variant.size : null,
                     quantity: item.quantity,
+                    stock: variant ? variant.stock : 99,
                     subtotal: priceAfterDiscount * item.quantity,
                     coupon: populatedCart.coupon,
                 };
@@ -188,23 +241,27 @@ class CartService {
 
     async updateCartQuantity(userId, itemId, newQuantity) {
         const cart = await Cart.findOne({ userId });
-        if (!cart) throw new Error('Không tìm thấy giỏ hàng');
+        if (!cart) throw new BadRequestError('Không tìm thấy giỏ hàng');
 
         const cartItem = cart.products.id(itemId);
-        if (!cartItem) throw new Error('Không tìm thấy sản phẩm trong giỏ hàng');
+        if (!cartItem) throw new BadRequestError('Không tìm thấy sản phẩm trong giỏ hàng');
 
         const product = await Product.findById(cartItem.productId);
-        if (!product) throw new Error('Không tìm thấy sản phẩm trong kho');
+        if (!product) throw new BadRequestError('Không tìm thấy sản phẩm trong kho');
 
         const variant = product.variants.id(cartItem.sizeId);
-        if (!variant) throw new Error('Không tìm thấy size trong sản phẩm');
+        if (!variant) throw new BadRequestError('Không tìm thấy size trong sản phẩm');
 
-        // Chỉ kiểm tra stock, không trừ/cộng
-        if (newQuantity > variant.stock) {
-            throw new Error('Số lượng trong kho không đủ');
+        const targetQty = Number(newQuantity);
+        if (targetQty < 1) {
+            throw new BadRequestError('Số lượng phải lớn hơn hoặc bằng 1');
         }
 
-        cartItem.quantity = newQuantity;
+        if (targetQty > variant.stock) {
+            throw new BadRequestError(`Số lượng trong kho chỉ còn tối đa ${variant.stock} sản phẩm`);
+        }
+
+        cartItem.quantity = targetQty;
         await cart.save();
 
         const allProductIds = cart.products.map((p) => p.productId);

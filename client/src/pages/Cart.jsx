@@ -293,7 +293,9 @@ function Cart() {
                                                 </span>
                                                 <button
                                                     onClick={() => handleQuantityChange(index, 1)}
-                                                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                                                    disabled={product.stock !== undefined && product.quantity >= product.stock}
+                                                    className="p-1 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={product.stock !== undefined && product.quantity >= product.stock ? `Đã đạt giới hạn tồn kho (${product.stock})` : ''}
                                                 >
                                                     <Plus className="w-4 h-4" />
                                                 </button>

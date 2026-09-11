@@ -152,8 +152,8 @@ export default function DetailProduct() {
             const data = {
                 productId: product._id,
                 quantity: quantity,
-                size: selectedSize,
-                color: selectedColor,
+                size: selectedSize?._id || selectedSize,
+                color: selectedColor?._id || selectedColor,
             };
             await requestAddToCart(data);
             fetchCart();
@@ -173,8 +173,8 @@ export default function DetailProduct() {
             const data = {
                 productId: product._id,
                 quantity: quantity,
-                size: selectedSize,
-                color: selectedColor,
+                size: selectedSize?._id || selectedSize,
+                color: selectedColor?._id || selectedColor,
             };
             await requestAddToCart(data);
             fetchCart();
